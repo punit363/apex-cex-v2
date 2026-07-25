@@ -1,0 +1,20 @@
+{
+  "name": "@exchange/engine",
+  "version": "1.0.0",
+  "description": "Order engine for crypto exchange",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsc && nodemon --ignore snapshot.json ./dist/index.js"
+  },
+  "author": "punit",
+  "license": "ISC",
+  "dependencies": {
+    "@types/redis": "^4.0.10",
+    "dotenv": "^17.4.2",
+    "nodemon": "^3.1.10",
+    "redis": "^5.5.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1"
+  }
+}

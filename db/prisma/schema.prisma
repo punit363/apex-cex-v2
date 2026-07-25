@@ -1,0 +1,103 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider            = "prisma-client-js"
+  importFileExtension = "ts" 
+}
+model User {
+  user_id             String        @id
+  first_name          String
+  last_name           String
+  age                 Int
+  email               String        @unique
+  phone               String        @unique
+  password            String
+  refresh_token       String?        
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+  orders              Order[]
+  transactions        Transaction[]
+  balance_ledger      BalanceLedger[]
+  trades              Trade[]         @relation("UserTrades")
+  other_trades        Trade[]         @relation("OtherUserTrades")
+  @@map("users")
+}
+
+model Order {
+order_id         String   @id
+user_id          String
+user             User     @relation(fields: [user_id], references: [user_id])
+side             String   // buy | sell
+type             String   // limit | market
+quantity         Float    //Satoshi-scaled Integer (1 BTC = 100,000,000)
+filled_quantity  Float    @default(0)
+price            Float    //Satoshi-scaled Integer
+status           String   @default("open")   // open | partial | filled | cancelled
+base_asset       String
+quote_asset      String
+created_at       DateTime @default(now())
+updated_at       DateTime @updatedAt
+trades           Trade[]  @relation("UserOrder")
+other_trades     Trade[]  @relation("OtherUserOrder")
+@@map("orders")
+}
+
+model Trade {
+trade_id       String   @id
+user_id        String                        // person who placed the latest order (latest)
+other_user_id  String                        // person whose order was already in the book (resting)
+order_id       String
+other_order_id String
+user           User     @relation("UserTrades", fields: [user_id], references: [user_id])
+other_user     User     @relation("OtherUserTrades", fields: [other_user_id], references: [user_id])
+user_order     Order    @relation("UserOrder", fields: [order_id], references: [order_id])
+other_order    Order    @relation("OtherUserOrder", fields: [other_order_id], references: [order_id])
+quantity       Float    //Satoshi-scaled Integer
+price          Float    //Satoshi-scaled Integer
+base_asset     String
+quote_asset    String
+side           String                     
+created_at     DateTime @default(now())
+@@map("trades")
+}
+
+model Candle {
+candle_id   String   @id @default(uuid())
+interval    String   // 1m | 5m | 1h | 1d
+base_asset  String
+quote_asset String
+open        Float    //Satoshi-scaled Integer
+high        Float
+low         Float
+close       Float
+volume      Float
+created_at  DateTime @default(now())         // ← bucket start time
+@@unique([base_asset, quote_asset, interval, created_at])
+@@map("candles")
+}
+
+model Transaction {
+tx_id      String   @id @default(uuid())
+user_id    String
+user       User     @relation(fields: [user_id], references: [user_id])
+type       String   // deposit | withdrawal
+asset      String   // INR | BTC
+amount     Float    // Satoshi-scaled Integer
+status     String   @default("pending")      // pending | completed | failed
+created_at DateTime @default(now())          // ← consistent naming
+@@map("transactions")
+}
+
+model BalanceLedger {
+id         String   @id @default(uuid())
+user_id    String
+user       User     @relation(fields: [user_id], references: [user_id])
+asset      String   // INR | BTC
+amount     Float    // positive = credit, negative = debit (Scaled)
+type       String   // deposit | withdrawal | trade_fill | fee
+ref_id     String?  // trade_id or tx_id that caused this entry
+created_at DateTime @default(now())
+@@map("balance_ledger")
+}

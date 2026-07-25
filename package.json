@@ -1,0 +1,31 @@
+{
+  "name": "apex-cex-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "api",
+    "engine",
+    "db",
+    "sockets",
+    "marketmaker"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS' -c 'cyan.bold,magenta.bold,yellow.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets'",
+    "dev:all": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS,MARKETMAKER' -c 'cyan.bold,magenta.bold,yellow.bold,green.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets' 'npm run dev --workspace=marketmaker'",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:api": "npm run dev --workspace=api",
+    "dev:engine": "npm run dev --workspace=engine",
+    "dev:db": "npm run dev --workspace=db",
+    "generate:db": "npm run generate --workspace=db",
+    "seed:db": "npm run seed --workspace=db",
+    "studio:db": "npm run studio --workspace=db",
+    "dev:sockets": "npm run dev --workspace=sockets",
+    "dev:marketmaker": "npm run dev --workspace=marketmaker",
+    "db:push": "npm run db:push --workspace=db",
+    "db:seed": "npm run db:seed --workspace=db"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
