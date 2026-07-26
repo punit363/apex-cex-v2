@@ -111,5 +111,54 @@ class RedisHandler {
       );
     }
   };
+
+  private GROUP = "engine-group";
+  private CONSUMER = "engine-1"; // unique per process/replica 1-> main engine 2-> backup starts only when 1 stops
+
+  setupConsumerGroup = async (stream_key: string) => {
+    try {
+      await this.client.xGroupCreate(stream_key, this.GROUP, "$", {
+        MKSTREAM: true,
+      });
+    } catch (error: any) {
+      if (!error.message?.includes("BUSYGROUP")) {
+        throw error; // anything else is a real problem — don't hide it
+      }
+    }
+  };
+
+  consumeOrderLoop = async (
+    stream_key: string,
+    onOrder: (order: any, id: string) => Promise<void>
+  ) => {
+    console.log("engine loop started");
+    await this.setupConsumerGroup(stream_key);
+    while (true) {
+      const result = await this.client.xReadGroup(
+        this.GROUP,
+        this.CONSUMER,
+        { key: stream_key, id: ">" }, // '>' = only entries never delivered to this group
+        { COUNT: 10, BLOCK: 5000 }
+      );
+      console.log(result, "--------result");
+
+      if (!result) continue;
+
+      for (const stream of result) {
+        for (const message of stream.messages) {
+          try {
+            const order = JSON.parse(message.message.payload);
+            await onOrder(order, message.id);
+            await this.client.xAck(stream_key, this.GROUP, message.id);
+          } catch (err) {
+            console.error(
+              `failed processing order ${message.id}, will remain pending`,
+              err
+            );
+          }
+        }
+      }
+    }
+  };
 }
 export default RedisHandler;

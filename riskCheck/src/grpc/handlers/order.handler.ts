@@ -1,12 +1,21 @@
 import * as grpc from "@grpc/grpc-js";
 import { riskService } from "../../core/risk.service.js";
+import RedisHandler from "../../redis.js";
 
 export async function validateAndProcessOrderHandler(
   call: grpc.ServerUnaryCall<any, any>,
   callback: grpc.sendUnaryData<any>
 ) {
-  const { user_id, order_id, price, quantity, side, base_asset, quote_asset } =
-    call.request;
+  const {
+    user_id,
+    order_id,
+    price,
+    quantity,
+    side,
+    type,
+    base_asset,
+    quote_asset,
+  } = call.request;
 
   const numPrice = Number(price);
   const numQuantity = Number(quantity);
@@ -32,13 +41,23 @@ export async function validateAndProcessOrderHandler(
   }
 
   try {
-    // const engineResponse: any = await executeOrderAsync(call.request);
+    const market = `${base_asset}_${quote_asset}`;
+    const order = {
+      user_id,
+      action: "PLACE_ORDER",
+      order_data: {
+        order_id,
+        price,
+        quantity,
+        side,
+        type,
+        base_asset,
+        quote_asset,
+      },
+    };
+    const redis = await RedisHandler.createInstance();
 
-    // if (!engineResponse?.success) {
-    //   throw new Error(
-    //     engineResponse?.message || "Engine execution rejected order"
-    //   );
-    // }
+    await redis.addOrderToEngineStream(market, order);
 
     return callback(null, {
       success: true,

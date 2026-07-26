@@ -14,11 +14,18 @@ export class RiskService {
 
   private loadSnapshot() {
     try {
-      const balanceSnapshot = fs.readFileSync("./balanceSnapshot.json", "utf-8");
+      const balanceSnapshot = fs.readFileSync(
+        "./balanceSnapshot.json",
+        "utf-8"
+      );
       const parsed = JSON.parse(balanceSnapshot);
+
       this.balances = new Map<string, UserBalance>(parsed.balances);
-    } catch {
-      console.log("ℹ️ No balance snapshot found, starting with clean ledger");
+    } catch (err) {
+      console.log(
+        "ℹ️ No balance snapshot found, starting with clean ledger",
+        err
+      );
     }
   }
 
@@ -39,6 +46,7 @@ export class RiskService {
     quoteAsset: string,
     baseAsset: string
   ): void {
+    console.log(user_id, "+++++++++++");
     const userBalance = this.balances.get(user_id);
     if (!userBalance) {
       throw new Error(`CRITICAL: Ledger missing for user: ${user_id}`);
@@ -46,7 +54,9 @@ export class RiskService {
 
     if (side === "buy") {
       if (!userBalance[quoteAsset]) {
-        throw new Error(`CRITICAL: ${quoteAsset} ledger missing for user: ${user_id}. Add balance to ${quoteAsset}`);
+        throw new Error(
+          `CRITICAL: ${quoteAsset} ledger missing for user: ${user_id}. Add balance to ${quoteAsset}`
+        );
       }
       const quoteValue = Math.floor((quantity * price) / SCALE);
       if (userBalance[quoteAsset].available < quoteValue) {
@@ -56,7 +66,9 @@ export class RiskService {
       userBalance[quoteAsset].locked += quoteValue;
     } else if (side === "sell") {
       if (!userBalance[baseAsset]) {
-        throw new Error(`CRITICAL: ${baseAsset} ledger missing for user: ${user_id}. Add balance to ${baseAsset}`);
+        throw new Error(
+          `CRITICAL: ${baseAsset} ledger missing for user: ${user_id}. Add balance to ${baseAsset}`
+        );
       }
       if (userBalance[baseAsset].available < quantity) {
         throw new Error("Insufficient balance for sell order");
