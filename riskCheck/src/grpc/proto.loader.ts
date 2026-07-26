@@ -1,9 +1,12 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 
-// 2. Resolve relative path to your .proto file
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const PROTO_PATH = path.resolve(__dirname, "../../../proto/order.proto");
+
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
@@ -12,9 +15,4 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   oneofs: true,
 });
 
-const proto = grpc.loadPackageDefinition(packageDefinition) as any;
-
-export const riskCheckClient = new proto.exchange.RiskService(
-  "localhost:50051",
-  grpc.credentials.createInsecure()
-);
+export const proto = grpc.loadPackageDefinition(packageDefinition) as any;

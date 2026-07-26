@@ -5,10 +5,10 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc -b",
-    "start": "nodemon dist/index.js",
+    "start": "nodemon --ignore balanceSnapshot.json dist/index.js",
     "dev": "npm run build && npm run start"
   },
   "dependencies": {
