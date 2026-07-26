@@ -1,6 +1,5 @@
 import * as grpc from "@grpc/grpc-js";
 import { riskService } from "../../core/risk.service.js";
-import { executeOrderAsync } from "../clients/engine.client.js";
 
 export async function validateAndProcessOrderHandler(
   call: grpc.ServerUnaryCall<any, any>,

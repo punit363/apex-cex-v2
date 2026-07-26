@@ -21,20 +21,7 @@ message RiskCheckResponse {
   string order_id = 3;
 }
 
-// Response from Engine after matching
-message EngineExecutionResponse {
-  bool success = 1;
-  string status = 2;       // "open" | "filled" | "partial"
-  int64 filled_quantity = 3;
-  string message = 4;
-}
-
 // gRPC Service exposed by Risk Check Service
 service RiskService {
   rpc ValidateAndProcessOrder (OrderRequest) returns (RiskCheckResponse);
-}
-
-// gRPC Service exposed by Matching Engine
-service EngineService {
-  rpc ExecuteOrder (OrderRequest) returns (EngineExecutionResponse);
 }

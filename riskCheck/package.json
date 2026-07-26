@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
-    "@grpc/proto-loader": "^0.8.1"
+    "@grpc/proto-loader": "^0.8.1",
+    "@types/redis": "^4.0.10",
+    "redis": "^6.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
