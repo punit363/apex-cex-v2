@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:latest
-    container_name: project-pg-db
+    container_name: apex-cex-v2-db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -10,11 +10,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
 
   redis:
     image: redis:alpine
-    container_name: project-redis
+    container_name: apex-cex-v2-redis
     restart: always
     ports:
       - "6379:6379"

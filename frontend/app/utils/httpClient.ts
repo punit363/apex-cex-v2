@@ -56,7 +56,16 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    console.log(error);
+
+    // 1. Guard: If the 401 originated from the /auth/refresh endpoint itself, 
+    // do NOT attempt to refresh again (prevents infinite loop/deadlock).
+    if (originalRequest?.url?.includes("/auth/refresh")) {
+      handleWipeAndLogout();
+      toast.error("Session expired. Please log in again.");
+      return Promise.reject(error);
+    }
+
+    // 2. Intercept 401 Unauthorized errors for silent rotation
     if (
       error.response &&
       error.response.status === 401 &&
@@ -66,10 +75,8 @@ apiClient.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(() => {
-            return apiClient(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
+          .then(() => apiClient(originalRequest))
+          .catch((err) => Promise.reject(err)); // Fixed: explicit return
       }
 
       originalRequest._retry = true;
@@ -80,8 +87,9 @@ apiClient.interceptors.response.use(
       );
 
       return new Promise((resolve, reject) => {
-        apiClient
-          .post("/auth/refresh", {})
+        // Use direct un-intercepted axios POST to avoid re-triggering interceptors
+        axios
+          .post(`${BASE_URL}/auth/refresh`, {}, { withCredentials: true })
           .then(() => {
             console.log(
               "[HTTP CLIENT] Session rotated successfully. Retrying failed requests..."

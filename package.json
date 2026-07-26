@@ -8,7 +8,8 @@
     "engine",
     "db",
     "sockets",
-    "marketmaker"
+    "marketMaker",
+    "riskCheck"
   ],
   "scripts": {
     "dev": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS' -c 'cyan.bold,magenta.bold,yellow.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets'",
@@ -18,6 +19,7 @@
     "dev:engine": "npm run dev --workspace=engine",
     "dev:db": "npm run dev --workspace=db",
     "generate:db": "npm run generate --workspace=db",
+    "push:db": "npm run push --workspace=db",
     "seed:db": "npm run seed --workspace=db",
     "studio:db": "npm run studio --workspace=db",
     "dev:sockets": "npm run dev --workspace=sockets",

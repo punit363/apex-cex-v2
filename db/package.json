@@ -8,6 +8,7 @@
     "build": "tsc",
     "dev": "npm run build && node dist/worker.js",
     "generate": "npx prisma generate",
+    "push": "npx prisma db push",
     "seed":"npx prisma db seed",
     "studio":"npx prisma studio",
     "dev:watch": "tsx watch src/index.ts"

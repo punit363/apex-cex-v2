@@ -32,7 +32,7 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Recent trades does not exist for this market`, 404);
     }
 
-    const formattedTrades = recentTrades.map((trade) => ({
+    const formattedTrades = recentTrades.map((trade:any) => ({
       tradeId: trade.trade_id,
       price: trade.price.toString(),
       quantity: trade.quantity.toString(),
