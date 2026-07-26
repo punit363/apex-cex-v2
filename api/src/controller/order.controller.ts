@@ -5,6 +5,7 @@ import { generateAPIResponse, generateErrorResponse } from "../helper";
 import { EngineResponse } from "../types/types";
 import { OrderRepo } from "@exchange/db";
 import { AppError } from "../helper/error";
+import { riskCheckClient } from "../grpc/client";
 
 const placeOrder = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -30,37 +31,70 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       unused_market_order_amount: number;
     };
 
-    const engine_response = (await redis.sendAndAwait({
-      type: "ORDER",
-      order: {
-        action: "PLACE_ORDER",
-        user_id,
-        order_data: {
-          order_id,
-          price,
-          quantity,
-          side,
-          type,
-          baseAsset,
-          quoteAsset,
-        },
-      },
-    })) as EngineResponse;
+    // const engine_response = (await redis.sendAndAwait({
+    //   type: "ORDER",
+    //   order: {
+    //     action: "PLACE_ORDER",
+    //     user_id,
+    //     order_data: {
+    //       order_id,
+    //       price,
+    //       quantity,
+    //       side,
+    //       type,
+    //       baseAsset,
+    //       quoteAsset,
+    //     },
+    //   },
+    // })) as EngineResponse;
 
-    if (!engine_response.data) {
-      throw new AppError(engine_response.message, 404);
-    }
+    // if (!engine_response.data) {
+    //   throw new AppError(engine_response.message, 404);
+    // }
+    console.log({
+      user_id,
+      order_id,
+      price,
+      quantity,
+      side,
+      type,
+      base_asset: baseAsset,
+      quote_asset: quoteAsset,
+    });
+    const payload = {
+      user_id,
+      order_id,
+      price,
+      quantity,
+      side,
+      type,
+      base_asset: baseAsset,
+      quote_asset: quoteAsset,
+    };
 
-    return res
-      .status(200)
-      .send(
-        generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
-          1
-        )
-      );
+    riskCheckClient.ValidateAndProcessOrder(
+      payload,
+      (err: any, response: any) => {
+        if (err) {
+          console.error("gRPC Request Failed:", err);
+          return res.status(500).json({ message: "Risk check failed" });
+        }
+        return res.status(200).json(response);
+      }
+    );
+
+    // console.log(engine_response, "++++++grpc engine response");
+
+    // return res
+    //   .status(200)
+    //   .send(
+    //     generateAPIResponse(
+    //       engine_response.data,
+    //       engine_response.message,
+    //       engine_response.status,
+    //       1
+    //     )
+    //   );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in order/placeOrder:", error);

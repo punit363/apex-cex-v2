@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package exchange;
+
+// Request sent from API Gateway to Risk Check
+message OrderRequest {
+  string user_id = 1;
+  string order_id = 2;
+  int64 price = 3;        // Scaled Satoshi integer (10^8)
+  int64 quantity = 4;     // Scaled Satoshi integer (10^8)
+  string side = 5;        // "buy" | "sell"
+  string type = 6;        // "limit" | "market"
+  string base_asset = 7;
+  string quote_asset = 8;
+}
+
+// Response from Risk Check back to Gateway
+message RiskCheckResponse {
+  bool success = 1;
+  string message = 2;
+  string order_id = 3;
+}
+
+// Response from Engine after matching
+message EngineExecutionResponse {
+  bool success = 1;
+  string status = 2;       // "open" | "filled" | "partial"
+  int64 filled_quantity = 3;
+  string message = 4;
+}
+
+// gRPC Service exposed by Risk Check Service
+service RiskService {
+  rpc ValidateAndProcessOrder (OrderRequest) returns (RiskCheckResponse);
+}
+
+// gRPC Service exposed by Matching Engine
+service EngineService {
+  rpc ExecuteOrder (OrderRequest) returns (EngineExecutionResponse);
+}
