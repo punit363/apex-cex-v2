@@ -33,7 +33,7 @@ export default function BalancePage() {
   const [selectedAsset, setSelectedAsset] = useState("");
   const [amountInput, setAmountInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   useEffect(() => {
     const cachedBalances = localStorage.getItem("cached_balances");
     const cachedAssets = localStorage.getItem("cached_assets");
@@ -63,6 +63,7 @@ export default function BalancePage() {
         );
       }
 
+      setAssets(["BTC", "USDT"]);
       if (assetList.status === "fulfilled" && Array.isArray(assetList.value)) {
         setAssets(assetList.value);
         localStorage.setItem("cached_assets", JSON.stringify(assetList.value));

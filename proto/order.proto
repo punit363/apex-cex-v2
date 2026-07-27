@@ -14,14 +14,31 @@ message OrderRequest {
   string quote_asset = 8;
 }
 
+// Request sent from API Gateway to Risk Check
+message BalanceRequest {
+  string user_id = 1;
+  string tx_id = 2;
+  string asset = 3;
+  string type = 4;
+  int64 amount = 5;
+}
+
 // Response from Risk Check back to Gateway
-message RiskCheckResponse {
+message RiskCheckOrderResponse {
   bool success = 1;
   string message = 2;
   string order_id = 3;
 }
 
+// Response from Risk Check back to Gateway
+message RiskCheckBalanceResponse {
+  bool success = 1;
+  string message = 2;
+  string tx_id = 3;
+}
+
 // gRPC Service exposed by Risk Check Service
 service RiskService {
-  rpc ValidateAndProcessOrder (OrderRequest) returns (RiskCheckResponse);
+  rpc ValidateAndProcessOrder (OrderRequest) returns (RiskCheckOrderResponse);
+  rpc ValidateAndUpdateUserBalance (BalanceRequest) returns (RiskCheckBalanceResponse);
 }

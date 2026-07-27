@@ -19,6 +19,11 @@ class RedisHandler {
     return RedisHandler.instance;
   };
 
+  sendToDB = async (data: any) => {
+    const order = this.client.lPush("DB_UPDATE", JSON.stringify(data));
+    return order;
+  };
+
   addOrderRequestToEngineStream = async (market: string, order: any) => {
     await this.client.XADD(market, "*", { payload: JSON.stringify(order) });
   };

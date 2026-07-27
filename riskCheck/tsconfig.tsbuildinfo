@@ -1,1 +1,1 @@
-{"root":["./src/index.ts","./src/redis.ts","./src/config/config.ts","./src/core/risk.service.ts","./src/grpc/proto.loader.ts","./src/grpc/server.ts","./src/grpc/clients/engine.client.ts","./src/grpc/handlers/order.handler.ts","./src/types/index.ts"],"version":"6.0.3"}
+{"root":["./src/index.ts","./src/redis.ts","./src/config/config.ts","./src/core/risk.service.ts","./src/grpc/proto.loader.ts","./src/grpc/server.ts","./src/grpc/clients/engine.client.ts","./src/grpc/handlers/balance.handler.ts","./src/grpc/handlers/order.handler.ts","./src/types/index.ts"],"version":"6.0.3"}

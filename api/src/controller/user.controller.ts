@@ -6,6 +6,7 @@ import { prisma, UserRepo } from "@exchange/db";
 import RedisHandler from "../redis";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 import { AppError } from "../helper/error";
+import { riskCheckClient } from "../grpc/client";
 
 const registerUser = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -81,9 +82,9 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
 
 const updateBalance = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { amount, asset, type } = req.body;
+    let { amount, asset, type } = req.body;
     const user_id = req.user_id;
-
+    console.log(amount, asset, type, user_id);
     if (!user_id || !amount || !asset || !type) {
       throw new AppError(`Missing required request parameters`, 400);
     }
@@ -104,32 +105,25 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Amount must be a valid positive number`, 400);
     }
 
-    const transaction = {
-      action: "UPDATE_BALANCE",
+    const payload = {
       user_id,
-      transaction_data: { tx_id: generateTransactionId(), asset, type, amount },
+      tx_id: generateTransactionId(),
+      asset,
+      type,
+      amount,
     };
 
-    const redis = await RedisHandler.createInstance();
-    const engine_response = (await redis.sendAndAwait({
-      type: "BALANCE",
-      transaction,
-    })) as EngineResponse;
+    riskCheckClient.ValidateAndUpdateUserBalance(
+      payload,
+      (err: any, response: any) => {
+        if (err) {
+          console.error("gRPC Request Failed:", err);
+          return res.status(500).json({ message: "Risk check failed" });
+        }
+        return res.status(200).json(response);
+      }
+    );
 
-    if (!engine_response.data) {
-      throw new AppError(engine_response.message, 400);
-    }
-
-    return res
-      .status(200)
-      .send(
-        generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
-          1
-        )
-      );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/updateBalance:", error);
@@ -196,24 +190,24 @@ const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
   try {
     const redis = await RedisHandler.createInstance();
 
-    const engine_response = (await redis.sendAndAwait({
-      type: "MARKET",
-      market: {
-        action: "FETCH_ALL_ASSET",
-      },
-    })) as EngineResponse;
+    // const engine_response = (await redis.sendAndAwait({
+    //   type: "MARKET",
+    //   market: {
+    //     action: "FETCH_ALL_ASSET",
+    //   },
+    // })) as EngineResponse;
 
-    if (engine_response.eng_status_code === 0) {
-      throw new AppError(engine_response.message, 400);
-    }
+    // if (engine_response.eng_status_code === 0) {
+    //   throw new AppError(engine_response.message, 400);
+    // }
 
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
+          ["BTC", "USDT"],
+          "engine_response.message",
+          "engine_response.status",
           1
         )
       );

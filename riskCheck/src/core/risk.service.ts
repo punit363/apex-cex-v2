@@ -1,6 +1,7 @@
 import fs from "fs";
 import { CONFIG } from "../config/config.js";
-import type { UserBalance } from "../types/index.js";
+import type { Transaction, UserBalance } from "../types/index.js";
+import RedisHandler from "../redis.js";
 
 const SCALE = CONFIG.SCALE;
 
@@ -37,6 +38,14 @@ export class RiskService {
       fs.writeFileSync("./balanceSnapshot.json", JSON.stringify(snapshot));
     }, 3000);
   }
+
+  private addTransactionInDB = async (transaction: Transaction) => {
+    const redis = await RedisHandler.createInstance();
+    await redis.sendToDB({
+      action: "ADD_TRANSACTION",
+      transaction,
+    });
+  };
 
   public checkAndLockBalance(
     user_id: string,
@@ -96,6 +105,56 @@ export class RiskService {
     } else if (side === "sell" && userBalance[baseAsset]) {
       userBalance[baseAsset].locked -= quantity;
       userBalance[baseAsset].available += quantity;
+    }
+  }
+
+  public async updateBalance(
+    user_id: string,
+    tx_id: string,
+    asset: string,
+    type: string,
+    amount: number
+  ) {
+    try {
+      const user_balance: UserBalance | any = this.balances.get(user_id);
+
+      if (!user_balance) {
+        throw new Error(`User balance not found for user_id: ${user_id}`);
+      }
+
+      if (!user_balance[asset]) {
+        user_balance[asset] = { available: 0, locked: 0 };
+      }
+
+      if (type === "deposit") {
+        user_balance[asset].available += amount;
+      } else if (type === "withdraw") {
+        if (user_balance[asset].available < amount) {
+          throw new Error("You do not have sufficient balance");
+        }
+        user_balance[asset].available -= amount;
+      } else {
+        throw new Error(
+          "Invalid transaction type or user balance does not exist"
+        );
+      }
+
+      this.addTransactionInDB({
+        tx_id,
+        user_id,
+        asset,
+        type,
+        amount,
+      }).catch((err) => {
+        console.error(
+          `Non-Blocking DB Logging Error for tx ${tx_id}:`,
+          err.message
+        );
+      });
+
+      this.balances.set(user_id, user_balance);
+    } catch (error: any) {
+      console.error("Engine BALANCE_UPDATE_ERROR Intercepted: ", error.message);
     }
   }
 }

@@ -5,4 +5,12 @@ interface UserBalance {
   };
 }
 
-export type { UserBalance };
+type Transaction = {
+  tx_id: string;
+  user_id: string;
+  asset: string;
+  type: string;
+  amount: number;
+};
+
+export type { UserBalance, Transaction };
