@@ -34,6 +34,10 @@ class RedisHandler {
     return await this.client.get(key);
   };
 
+  addOrderRequestToEngineStream = async (market: string, order: any) => {
+    await this.client.XADD(market, "*", { payload: JSON.stringify(order) });
+  };
+
   sendAndAwait = async (data: EngineRequest) => {
     const engineRequestId = generateEngineRequestId();
     const engine_data = {

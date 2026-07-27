@@ -19,7 +19,7 @@ class RedisHandler {
     return RedisHandler.instance;
   };
 
-  addOrderToEngineStream = async (market: string, order: any) => {
+  addOrderRequestToEngineStream = async (market: string, order: any) => {
     await this.client.XADD(market, "*", { payload: JSON.stringify(order) });
   };
 }

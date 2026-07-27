@@ -162,31 +162,41 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
 
     const redis = await RedisHandler.createInstance();
 
-    const engine_response = (await redis.sendAndAwait({
-      type: "ORDER",
-      order: {
-        user_id,
-        action: "CANCEL_ORDER",
-        order_data: {
-          order_id,
-          side,
-          baseAsset: base_asset,
-          quoteAsset: quote_asset,
-        },
-      },
-    })) as EngineResponse;
+    // const engine_response = (await redis.sendAndAwait({
+    //   type: "ORDER",
+    //   order: {
+    //     user_id,
+    //     action: "CANCEL_ORDER",
+    //     order_data: {
+    //       order_id,
+    //       side,
+    //       baseAsset: base_asset,
+    //       quoteAsset: quote_asset,
+    //     },
+    //   },
+    // })) as EngineResponse;
 
-    if (!engine_response.data) {
-      throw new AppError(engine_response.message, 404);
-    }
+    const market = `${base_asset}_${quote_asset}`;
+    const order = {
+      user_id,
+      action: "CANCEL_ORDER",
+      order_data: {
+        order_id,
+        side,
+        base_asset,
+        quote_asset,
+      },
+    };
+
+    await redis.addOrderRequestToEngineStream(market, order);
 
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
+          null,
+          "Order cancellation request successfully placed",
+          "SUCCESS",
           1
         )
       );

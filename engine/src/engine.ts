@@ -411,6 +411,12 @@ class Engine {
                 );
               });
           } else {
+            console.log("++++++++++", {
+              eng_status_code: odb_response.odb_status_code,
+              status: odb_response.status,
+              message: odb_response.message,
+              data: odb_response.data,
+            });
             redis
               .sendApiResponse(
                 {

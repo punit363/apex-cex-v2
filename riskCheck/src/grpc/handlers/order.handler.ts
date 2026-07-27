@@ -57,7 +57,7 @@ export async function validateAndProcessOrderHandler(
     };
     const redis = await RedisHandler.createInstance();
 
-    await redis.addOrderToEngineStream(market, order);
+    await redis.addOrderRequestToEngineStream(market, order);
 
     return callback(null, {
       success: true,
