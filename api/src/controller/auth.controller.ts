@@ -9,6 +9,7 @@ import {
 } from "../utils/auth.utils";
 import { JwtPayload } from "jsonwebtoken";
 import { AppError } from "../helper/error";
+import { CONFIG } from "../config/config";
 
 const loginUser = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -47,8 +48,8 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
-      maxAge: process.env.ACCESS_COOKIE_AGE
-        ? parseInt(process.env.ACCESS_COOKIE_AGE, 10)
+      maxAge: CONFIG.ACCESS_COOKIE_AGE
+        ? parseInt(CONFIG.ACCESS_COOKIE_AGE, 10)
         : 15 * 60 * 1000,
       path: "/",
     });
@@ -57,8 +58,8 @@ const loginUser = async (req: Request, res: Response): Promise<any> => {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
-      maxAge: process.env.REFRESH_COOKIE_AGE
-        ? parseInt(process.env.REFRESH_COOKIE_AGE, 10)
+      maxAge: CONFIG.REFRESH_COOKIE_AGE
+        ? parseInt(CONFIG.REFRESH_COOKIE_AGE, 10)
         : 7 * 24 * 60 * 60 * 1000,
       path: "/",
     });
@@ -171,14 +172,14 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
 
       await UserRepo.updateRefreshToken(refreshPayload.user_id, refresh_token);
 
-      const isProduction = process.env.NODE_ENV === "production";
+      const isProduction = CONFIG.NODE_ENV === "production";
 
       res.cookie("access_token", access_token, {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
-        maxAge: process.env.ACCESS_COOKIE_AGE
-          ? parseInt(process.env.ACCESS_COOKIE_AGE, 10)
+        maxAge: CONFIG.ACCESS_COOKIE_AGE
+          ? parseInt(CONFIG.ACCESS_COOKIE_AGE, 10)
           : 15 * 60 * 1000,
         path: "/",
       });
@@ -187,8 +188,8 @@ const refreshTokens = async (req: Request, res: Response): Promise<any> => {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
-        maxAge: process.env.REFRESH_COOKIE_AGE
-          ? parseInt(process.env.REFRESH_COOKIE_AGE, 10)
+        maxAge: CONFIG.REFRESH_COOKIE_AGE
+          ? parseInt(CONFIG.REFRESH_COOKIE_AGE, 10)
           : 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });

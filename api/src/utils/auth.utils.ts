@@ -1,15 +1,16 @@
 import jwt, { SignOptions, JwtPayload } from "jsonwebtoken";
+import { CONFIG } from "../config/config";
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET;
+const ACCESS_TOKEN_SECRET = CONFIG.ACCESS_TOKEN_SECRET;
+const REFRESH_TOKEN_SECRET = CONFIG.REFRESH_TOKEN_SECRET;
 
 if (!ACCESS_TOKEN_SECRET) throw new Error("ACCESS_TOKEN_SECRET is not defined");
 if (!REFRESH_TOKEN_SECRET)
   throw new Error("REFRESH_TOKEN_SECRET is not defined");
 
-const ACCESS_TOKEN_EXPIRES_IN = (process.env.ACCESS_TOKEN_EXPIRES_IN ??
+const ACCESS_TOKEN_EXPIRES_IN = (CONFIG.ACCESS_TOKEN_EXPIRES_IN ??
   "1h") as SignOptions["expiresIn"];
-  const REFRESH_TOKEN_EXPIRES_IN = (process.env.REFRESH_TOKEN_EXPIRES_IN ??
+  const REFRESH_TOKEN_EXPIRES_IN = (CONFIG.REFRESH_TOKEN_EXPIRES_IN ??
     "7d") as SignOptions["expiresIn"];
 
 const generateToken = (
