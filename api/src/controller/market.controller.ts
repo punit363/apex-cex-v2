@@ -4,6 +4,7 @@ import RedisHandler from "../redis";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 import { EngineResponse } from "../types/types";
 import { AppError } from "../helper/error";
+import { CONFIG } from "../config/config";
 
 const fetchTickerData = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -94,65 +95,21 @@ const fetchAllMarkets = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Missing required request parameter`, 400);
     }
 
-    const market = {
-      action: "FETCH_ALL_MARKETS",
-      user_id,
-    };
+    const markets = CONFIG.SUPPORTED_MARKETS
 
-    // const redis = await RedisHandler.createInstance();
-    // const engine_response = (await redis.sendAndAwait({
-    //   type: "MARKET",
-    //   market,
-    // })) as EngineResponse;
+   
 
-    const engine_response = {
-      data: [
-        { base: "BTC", quote: "USDT" },
-        { base: "ETH", quote: "USDT" },
-        { base: "SOL", quote: "USDT" },
-        { base: "XRP", quote: "USDT" },
-        { base: "DOGE", quote: "USDT" },
-        { base: "ADA", quote: "USDT" },
-        { base: "LINK", quote: "USDT" },
-        { base: "MATIC", quote: "USDT" },
-        { base: "BCH", quote: "USDT" },
-        { base: "FIL", quote: "USDT" },
-        { base: "BTC", quote: "USDC" },
-        { base: "ETH", quote: "USDC" },
-        { base: "SOL", quote: "USDC" },
-        { base: "AVAX", quote: "USDC" },
-        { base: "BTC", quote: "USD" },
-        { base: "ETH", quote: "USD" },
-        { base: "LTC", quote: "USD" },
-        { base: "ETH", quote: "BTC" },
-        { base: "SOL", quote: "BTC" },
-        { base: "ADA", quote: "BTC" },
-        { base: "XRP", quote: "BTC" },
-        { base: "DOT", quote: "BTC" },
-        { base: "LINK", quote: "BTC" },
-        { base: "AVAX", quote: "BTC" },
-        { base: "UNI", quote: "BTC" },
-        { base: "SOL", quote: "ETH" },
-        { base: "MATIC", quote: "ETH" },
-        { base: "AAVE", quote: "ETH" },
-        { base: "GRT", quote: "ETH" },
-        { base: "DOT", quote: "ETH" },
-      ],
-      message: "message",
-      status: "SUCCESS",
-    };
-
-    // if (engine_response.eng_status_code === 0) {
-    //   throw new AppError(engine_response.message, 404);
-    // }
+    if (!markets) {
+      throw new AppError("No markets supported yet", 404);
+    }
 
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
+          markets,
+          "Supported markets fetched successfully",
+          "SUCCESS",
           1
         )
       );
