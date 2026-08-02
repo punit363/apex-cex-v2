@@ -157,6 +157,64 @@ export class RiskService {
       console.error("Engine BALANCE_UPDATE_ERROR Intercepted: ", error.message);
     }
   }
+
+  public settleBalanceAfterTrade = (trade: any) => {
+    const {
+      user_id,
+      market,
+      quantity,
+      price,
+      trade_id,
+      order_id,
+      filled,
+      status,
+      side,
+      unsold_market_order_quanity,
+      unused_market_order_amount,
+    } = trade;
+
+    const [baseAsset, quoteAsset] = market.split("_");
+
+    if (side === "sell") {
+      const userBalance = this.balances.get(user_id);
+
+      if (!userBalance) {
+        throw new Error(`Balance missing for user: ${user_id}`);
+      }
+      if (!userBalance[baseAsset] || !userBalance[quoteAsset]) {
+        throw new Error(
+          `Specific asset ledger missing during settleBalanceAfterTrade`
+        );
+      }
+
+      const quoteValue = Math.floor((filled * price) / SCALE);
+
+      userBalance[baseAsset].locked -=
+        filled + unsold_market_order_quanity ? unsold_market_order_quanity : 0;
+      userBalance[quoteAsset].available += quoteValue;
+    } else if (side === "buy") {
+      const userBalance = this.balances.get(user_id);
+
+      if (!userBalance) {
+        throw new Error(`Balance missing for user: ${user_id}`);
+      }
+      if (!userBalance[baseAsset] || !userBalance[quoteAsset]) {
+        throw new Error(
+          `Specific asset ledger missing during settleBalanceAfterTrade`
+        );
+      }
+
+      const quoteValue = Math.floor((filled * price) / SCALE);
+
+      userBalance[quoteAsset].locked -=
+        quoteValue + unused_market_order_amount
+          ? unused_market_order_amount
+          : 0;
+      userBalance[baseAsset].available += filled;
+    } else {
+      throw new Error("Order side must be buy or sell");
+    }
+  };
 }
 
 export const riskService = new RiskService();

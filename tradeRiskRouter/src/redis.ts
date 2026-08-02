@@ -19,18 +19,14 @@ class RedisHandler {
     return RedisHandler.instance;
   };
 
-  sendToDB = async (data: any) => {
-    const order = this.client.lPush("DB_UPDATE", JSON.stringify(data));
-    return order;
+  addTradeUpdateToRiskCheckStream = async (risk_shard: string, order: any) => {
+    await this.client.XADD(risk_shard, "*", {
+      payload: JSON.stringify(order),
+    });
   };
 
-  addOrderRequestToEngineStream = async (market: string, order: any) => {
-    await this.client.XADD(market, "*", { payload: JSON.stringify(order) });
-  };
-
-
-  private GROUP = "risk-check-group";
-  private CONSUMER = "router-1"; // unique per process/replica 1-> main engine 2-> backup also runs but processing starts only when 1 stops
+  private GROUP = "risk-trade-router-group";
+  private CONSUMER = "router-1"; // unique per process/replica 1-> main engine 2-> backup starts only when 1 stops
 
   setupConsumerGroup = async (stream_key: string) => {
     try {
