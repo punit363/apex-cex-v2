@@ -1,7 +1,6 @@
 import fs from "fs";
-import { Orderbook, Fills } from "./orderbook";
+import { Orderbook } from "./orderbook";
 import RedisHandler from "./redis";
-import { generateCandleId } from "./utils";
 import { CONFIG } from "./config.js";
 
 const SCALE = CONFIG.SCALE;
@@ -208,12 +207,33 @@ class Engine {
             );
           });
 
-          const trade_publish_data = {
+          //Don't publish just trade, publish order and its respective trades, so that the client can update the order and trades in one go
+          const trade_data = {
             market,
-            trade: fills,
+            order: {
+              user_id: order.user_id,
+              order_id,
+              price,
+              quantity,
+              side,
+              type,
+              base_asset,
+              quote_asset,
+              status,
+              filled,
+              unsold_market_order_quanity,
+              unused_market_order_amount,
+            },
+            trades: fills,
           };
 
-          redis.publishTrade(market, trade_publish_data).catch((err) => {
+          redis.addTradeToRiskRouterStream(market, trade_data).catch((err) => { console.error(
+            `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+            err.message
+          );
+        });
+
+          redis.publishTrade(market, trade_data).catch((err) => {
             console.error(
               `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
               err.message

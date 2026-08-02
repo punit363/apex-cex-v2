@@ -112,6 +112,13 @@ class RedisHandler {
     }
   };
 
+  addTradeToRiskRouterStream = async (market: string, trade_data: any) => {
+    console.log("Adding trade to risk router stream:", trade_data, market);
+    await this.client.XADD(`trade:${market}`, "*", {
+      payload: JSON.stringify(trade_data),
+    });
+  };
+
   private GROUP = "engine-group";
   private CONSUMER = "engine-1"; // unique per process/replica 1-> main engine 2-> backup starts only when 1 stops
 
