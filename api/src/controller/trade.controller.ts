@@ -37,7 +37,7 @@ const getTrades = async (req: Request, res: Response): Promise<any> => {
       price: trade.price.toString(),
       quantity: trade.quantity.toString(),
       timestamp: trade.created_at.getTime(),
-      isBuyerMaker: trade.side.toLowerCase() === "sell",
+      isBuyerMaker: trade.side.toUpperCase() === "SELL",
     }));
 
     return res

@@ -70,7 +70,7 @@ const dbMain = async () => {
             for (const trade of trade_data) {
               await TradeRepo.create(trade);
 
-              if (trade.side === "buy") {
+              if (trade.side === "BUY") {
                 await BalanceLedgerRepo.create({
                   id: generateBalanceLedgerId(),
                   user_id: trade.user_id,
@@ -106,7 +106,7 @@ const dbMain = async () => {
                   type: "trade_fill",
                   ref_id: trade.trade_id,
                 });
-              } else if (trade.side === "sell") {
+              } else if (trade.side === "SELL") {
                 await BalanceLedgerRepo.create({
                   id: generateBalanceLedgerId(),
                   user_id: trade.user_id,

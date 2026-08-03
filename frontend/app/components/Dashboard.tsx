@@ -544,35 +544,35 @@ export default function Dashboard() {
                   pair: "BTC/USDT",
                   qty: 0.145,
                   price: 89042.3,
-                  side: "buy",
+                  side: "BUY",
                 },
                 {
                   time: "12:13:32",
                   pair: "ETH/USDT",
                   qty: 2.12,
                   price: 2603.4,
-                  side: "sell",
+                  side: "SELL",
                 },
                 {
                   time: "12:13:28",
                   pair: "SOL/USDT",
                   qty: 15.0,
                   price: 145.2,
-                  side: "buy",
+                  side: "BUY",
                 },
                 {
                   time: "12:13:19",
                   pair: "XRP/USDT",
                   qty: 850.0,
                   price: 2.11,
-                  side: "sell",
+                  side: "SELL",
                 },
                 {
                   time: "12:13:04",
                   pair: "DOGE/USDT",
                   qty: 12000,
                   price: 0.35,
-                  side: "buy",
+                  side: "BUY",
                 },
               ].map((t, idx) => (
                 <div
@@ -588,7 +588,7 @@ export default function Dashboard() {
                     </span>
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                        t.side === "buy"
+                        t.side === "BUY"
                           ? "bg-[#00C278]/10 text-[#00C278]"
                           : "bg-[#F94D5C]/10 text-[#F94D5C]"
                       }`}

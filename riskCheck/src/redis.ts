@@ -57,7 +57,6 @@ class RedisHandler {
         { key: stream_key, id: ">" }, // '>' = only entries never delivered to this group
         { COUNT: 10, BLOCK: 5000 }
       );
-      console.log(result, "--------result");
 
       if (!result) continue;
 

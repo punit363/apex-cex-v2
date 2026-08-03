@@ -29,7 +29,7 @@ model Order {
 order_id         String   @id
 user_id          String
 user             User     @relation(fields: [user_id], references: [user_id])
-side             String   // buy | sell
+side             String   // BUY | SELL
 type             String   // limit | market
 quantity         Float    //Satoshi-scaled Integer (1 BTC = 100,000,000)
 filled_quantity  Float    @default(0)

@@ -3,7 +3,11 @@ import type { AxiosInstance } from "axios";
 import { CONFIG } from "./config.js";
 
 // Normalize BASE_URL across property naming variants (CLIENT_URL, API_URL, or BASE_URL)
-const RAW_URL = (CONFIG as any).CLIENT_URL || (CONFIG as any).API_URL || (CONFIG as any).BASE_URL || "http://localhost:8000/api/v1";
+const RAW_URL =
+  (CONFIG as any).CLIENT_URL ||
+  (CONFIG as any).API_URL ||
+  (CONFIG as any).BASE_URL ||
+  "http://localhost:8000/api/v1";
 
 // Ensure URL cleanly includes /api/v1 prefix without trailing slashes
 const BASE_API_URL = RAW_URL.replace(/\/+$/, "").includes("/api/v1")
@@ -12,7 +16,8 @@ const BASE_API_URL = RAW_URL.replace(/\/+$/, "").includes("/api/v1")
 
 const BASE = (CONFIG as any).MM_BASE_ASSET || "BTC";
 const QUOTE = (CONFIG as any).MM_QUOTE_ASSET || "INR";
-const SCALE = (CONFIG as any).SCALE || (CONFIG as any).SATOSHI_SCALE || 100_000_000;
+const SCALE =
+  (CONFIG as any).SCALE || (CONFIG as any).SATOSHI_SCALE || 100_000_000;
 
 // User credentials (ensure this user is seeded in your database)
 const USER_CONFIG = {
@@ -83,12 +88,14 @@ async function runMarketMaker() {
 
   setInterval(async () => {
     try {
-      const side = Math.random() > 0.5 ? "buy" : "sell";
+      const side = Math.random() > 0.5 ? "BUY" : "SELL";
       const price = (10000 + Math.floor(Math.random() * 1000)) * SCALE;
       const quantity = Math.floor(Math.random() * 100) * SCALE;
 
       console.log(
-        `[BOT] Placing ${side.toUpperCase()} limit order: ${(quantity / SCALE).toFixed(2)} ${BASE} @ ₹${(price / SCALE).toLocaleString()}`
+        `[BOT] Placing ${side.toUpperCase()} limit order: ${(
+          quantity / SCALE
+        ).toFixed(2)} ${BASE} @ ₹${(price / SCALE).toLocaleString()}`
       );
 
       // Submit order using session-bound cookie client
@@ -108,7 +115,9 @@ async function runMarketMaker() {
 
       // Automatic re-authentication handler for 401 Unauthorized
       if (err.response?.status === 401) {
-        console.warn("🔄 Cookie session expired. Re-authenticating market maker...");
+        console.warn(
+          "🔄 Cookie session expired. Re-authenticating market maker..."
+        );
         await authenticate();
       }
     }

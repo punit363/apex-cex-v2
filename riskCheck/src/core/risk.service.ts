@@ -61,26 +61,27 @@ export class RiskService {
       throw new Error(`CRITICAL: Ledger missing for user: ${user_id}`);
     }
 
-    if (side === "buy") {
+    if (side === "BUY") {
       if (!userBalance[quoteAsset]) {
         throw new Error(
           `CRITICAL: ${quoteAsset} ledger missing for user: ${user_id}. Add balance to ${quoteAsset}`
         );
       }
       const quoteValue = Math.floor((quantity * price) / SCALE);
+
       if (userBalance[quoteAsset].available < quoteValue) {
-        throw new Error("Insufficient balance for buy order");
+        throw new Error("Insufficient balance for BUY order");
       }
       userBalance[quoteAsset].available -= quoteValue;
       userBalance[quoteAsset].locked += quoteValue;
-    } else if (side === "sell") {
+    } else if (side === "SELL") {
       if (!userBalance[baseAsset]) {
         throw new Error(
           `CRITICAL: ${baseAsset} ledger missing for user: ${user_id}. Add balance to ${baseAsset}`
         );
       }
       if (userBalance[baseAsset].available < quantity) {
-        throw new Error("Insufficient balance for sell order");
+        throw new Error("Insufficient balance for SELL order");
       }
       userBalance[baseAsset].available -= quantity;
       userBalance[baseAsset].locked += quantity;
@@ -98,11 +99,11 @@ export class RiskService {
     const userBalance = this.balances.get(user_id);
     if (!userBalance) return;
 
-    if (side === "buy" && userBalance[quoteAsset]) {
+    if (side === "BUY" && userBalance[quoteAsset]) {
       const quoteValue = Math.floor((quantity * price) / SCALE);
       userBalance[quoteAsset].locked -= quoteValue;
       userBalance[quoteAsset].available += quoteValue;
-    } else if (side === "sell" && userBalance[baseAsset]) {
+    } else if (side === "SELL" && userBalance[baseAsset]) {
       userBalance[baseAsset].locked -= quantity;
       userBalance[baseAsset].available += quantity;
     }
@@ -173,9 +174,10 @@ export class RiskService {
       unused_market_order_amount,
     } = trade;
 
+    console.log(trade, "trade details in risk service");
     const [baseAsset, quoteAsset] = market.split("_");
 
-    if (side === "sell") {
+    if (side === "SELL") {
       const userBalance = this.balances.get(user_id);
 
       if (!userBalance) {
@@ -189,10 +191,10 @@ export class RiskService {
 
       const quoteValue = Math.floor((filled * price) / SCALE);
 
-      userBalance[baseAsset].locked -=
-        filled + unsold_market_order_quanity ? unsold_market_order_quanity : 0;
+      userBalance[baseAsset].locked -= filled;
+      // userBalance[baseAsset].available += unsold_market_order_quanity; //market order
       userBalance[quoteAsset].available += quoteValue;
-    } else if (side === "buy") {
+    } else if (side === "BUY") {
       const userBalance = this.balances.get(user_id);
 
       if (!userBalance) {
@@ -206,13 +208,11 @@ export class RiskService {
 
       const quoteValue = Math.floor((filled * price) / SCALE);
 
-      userBalance[quoteAsset].locked -=
-        quoteValue + unused_market_order_amount
-          ? unused_market_order_amount
-          : 0;
+      userBalance[quoteAsset].locked -= quoteValue;
+      // userBalance[quoteAsset].locked += unused_market_order_amount; //market order
       userBalance[baseAsset].available += filled;
     } else {
-      throw new Error("Order side must be buy or sell");
+      throw new Error("Order side must be BUY or SELL");
     }
   };
 }

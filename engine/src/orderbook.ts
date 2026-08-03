@@ -2,7 +2,7 @@ import RedisHandler from "./redis";
 import { generateTradeId } from "./utils";
 import { CONFIG } from "./config.js";
 
-const SCALE = CONFIG.SCALE
+const SCALE = CONFIG.SCALE;
 export interface Order {
   orderId: string;
   userID: string;
@@ -10,7 +10,7 @@ export interface Order {
   quantity: number;
   filled: number;
   status: "open" | "filled" | "cancelled" | "partial";
-  side: "buy" | "sell";
+  side: "BUY" | "SELL";
 }
 
 export interface Fills {
@@ -38,8 +38,8 @@ export interface MatchResult {
   fills: Fills[];
   status: string;
   filled: number;
-  unsold_market_order_quanity?: number | null;
-  unused_market_order_amount?: number | null;
+  unsold_market_order_quanity?: number;
+  unused_market_order_amount?: number;
 }
 
 export class Orderbook {
@@ -68,8 +68,19 @@ export class Orderbook {
   ) {
     this.baseAsset = baseAsset;
     this.quoteAsset = quoteAsset;
-    this.bids = bids;
-    this.asks = asks;
+    this.bids = (bids || []).map((b) => ({
+      ...b,
+      price: Number(b.price),
+      quantity: Number(b.quantity),
+      filled: Number(b.filled || 0),
+    }));
+
+    this.asks = (asks || []).map((a) => ({
+      ...a,
+      price: Number(a.price),
+      quantity: Number(a.quantity),
+      filled: Number(a.filled || 0),
+    }));
     this.lastTradeId = lastTradeId;
     this.currentPrice = currentPrice;
 
@@ -121,7 +132,7 @@ export class Orderbook {
         asks: this.bookWithQuantity.asks,
         currentPrice: this.currentPrice,
       };
-    
+
       const redis = await RedisHandler.createInstance();
       redis.setBookWithQuantity(market, payload);
     } catch (error) {
@@ -150,7 +161,7 @@ export class Orderbook {
       status = "open",
     } = order_data;
     const fills: Fills[] = [];
-    let unsold_market_order_quanity: number | null = null;
+    let unsold_market_order_quanity: number  = null;
     const bid_splice_indexes: number[] = [];
 
     for (const o of this.bids) {
@@ -206,13 +217,14 @@ export class Orderbook {
         status:
           filled === 0 ? "open" : filled < quantity ? "partial" : "filled",
         orderId: order_id,
-        side: "sell",
+        side: "SELL",
         userID: user_id,
       };
 
       if (filled < quantity) {
         const index = this.asks.findIndex((el: Order) => el.price > odr.price);
         if (index === -1) {
+          console.log("pushing to asks0000000000", odr);
           this.asks.push(odr);
         } else {
           this.asks.splice(index, 0, odr);
@@ -253,7 +265,7 @@ export class Orderbook {
     const fills: Fills[] = [];
     let unused_market_order_amount: number | null = null;
     const ask_splice_indexes: number[] = [];
-   
+
     for (const o of this.asks) {
       if (type === "market") {
         const affordableBase = Math.floor((price * SCALE) / o.price);
@@ -270,7 +282,7 @@ export class Orderbook {
         }
         this.bookWithQuantity.asks[o.price] =
           (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
-       
+
         const tradeId = generateTradeId();
         fills.push({
           price: o.price,
@@ -343,7 +355,7 @@ export class Orderbook {
         price,
         quantity,
         orderId: order_id,
-        side: "buy",
+        side: "BUY",
         filled,
         status: filled === 0 ? "open" : "partial",
         userID: user_id,
@@ -351,6 +363,7 @@ export class Orderbook {
 
       const index = this.bids.findIndex((el: Order) => el.price < odr.price);
       if (index === -1) {
+        console.log("pushing to bids0000000000", odr);
         this.bids.push(odr);
       } else {
         this.bids.splice(index, 0, odr);
@@ -420,7 +433,7 @@ export class Orderbook {
       };
     }
 
-    if (quantity <= 0 && !(type === "market" && side === "buy")) {
+    if (quantity <= 0 && !(type === "market" && side === "BUY")) {
       return {
         status: "FAILED",
         odb_status_code: 0,
@@ -430,24 +443,26 @@ export class Orderbook {
     }
 
     try {
-      if (side === "sell") {
+      if (side === "SELL") {
         const result = this.executeSellOrder(user_id, order_data);
         this.updateCurrentPrice(result.fills);
         this.updateLastTradeId(result.fills);
+        console.log("===========", this.bids, "==========", this.asks);
         return {
           status: "SUCCESS",
           odb_status_code: 1,
           message: "Sell order processed successfully",
           data: result,
         };
-      } else if (side === "buy") {
+      } else if (side === "BUY") {
         const result = this.executeBuyOrder(user_id, order_data);
         this.updateCurrentPrice(result.fills);
         this.updateLastTradeId(result.fills);
+        console.log("===========", this.bids, "==========", this.asks);
         return {
           status: "SUCCESS",
           odb_status_code: 1,
-          message: "Buy order processed successfully",
+          message: "BUY order processed successfully",
           data: result,
         };
       } else {
@@ -481,9 +496,9 @@ export class Orderbook {
   ): EngineResponse<Order> => {
     const normalizedSide = side.toLowerCase();
 
-    const bookList = normalizedSide === "sell" ? this.asks : this.bids;
+    const bookList = normalizedSide === "SELL" ? this.asks : this.bids;
     const depthMap =
-      normalizedSide === "sell"
+      normalizedSide === "SELL"
         ? this.bookWithQuantity.asks
         : this.bookWithQuantity.bids;
 

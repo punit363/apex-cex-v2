@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getUserOrders, cancelOrder } from "../utils/httpClient";
-import { wsClient } from "../utils/wsClient"; 
+import { wsClient } from "../utils/wsClient";
 import { toast } from "react-hot-toast";
 import { CONFIG } from "../config";
 
@@ -13,7 +13,6 @@ export function OrdersPanel({ market }: { market: string }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(true);
-
 
   const [baseAsset, quoteAsset] = market.split("_");
 
@@ -38,9 +37,7 @@ export function OrdersPanel({ market }: { market: string }) {
     fetchOrders();
 
     const handleOrderUpdate = (data: any) => {
-
       if (!isMounted) return;
-
 
       if (data.market !== market) return;
 
@@ -170,7 +167,7 @@ export function OrdersPanel({ market }: { market: string }) {
               </span>
               <span
                 className={
-                  o.side?.toLowerCase() === "buy"
+                  o.side?.toLowerCase() === "BUY"
                     ? "text-[#00C278]"
                     : "text-[#F94D5C]"
                 }
@@ -179,12 +176,12 @@ export function OrdersPanel({ market }: { market: string }) {
               </span>
             </div>
             <div className="text-right tabular-nums text-slate-200">
-              {o.type === "market" && o.side === "sell"
+              {o.type === "market" && o.side === "SELL"
                 ? "-"
                 : (Number(o.price) / SCALE).toFixed(2)}
             </div>
             <div className="text-right tabular-nums text-slate-200">
-              {o.type === "market" && o.side === "buy"
+              {o.type === "market" && o.side === "BUY"
                 ? "-"
                 : (Number(o.quantity) / SCALE).toFixed(4)}
             </div>

@@ -66,7 +66,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
       order_id,
       price,
       quantity,
-      side,
+      side: side.toUpperCase(),
       type,
       base_asset: baseAsset,
       quote_asset: quoteAsset,

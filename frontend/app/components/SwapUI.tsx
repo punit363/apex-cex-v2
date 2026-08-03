@@ -9,7 +9,7 @@ const SCALE = CONFIG.SATOSHI_SCALE;
 
 export function SwapUI({ market }: { market: string }) {
   const [baseAsset, quoteAsset] = market.split("_");
-  const [activeTab, setActiveTab] = useState<"buy" | "sell">("buy");
+  const [activeTab, setActiveTab] = useState<"BUY" | "SELL">("BUY");
   const [type, setType] = useState<"limit" | "market">("limit");
 
   const [price, setPrice] = useState("");
@@ -51,7 +51,7 @@ export function SwapUI({ market }: { market: string }) {
         finalPrice = Math.floor(Number(price) * SCALE);
         finalQuantity = Math.floor(Number(quantity) * SCALE);
       } else if (type === "market") {
-        if (activeTab === "buy") {
+        if (activeTab === "BUY") {
           finalPrice = Math.floor(Number(quantity) * SCALE);
           finalQuantity = 0;
         } else {
@@ -79,7 +79,7 @@ export function SwapUI({ market }: { market: string }) {
     }
   };
 
-  const isMarketBuy = type === "market" && activeTab === "buy";
+  const isMarketBuy = type === "market" && activeTab === "BUY";
   const amountLabel = isMarketBuy ? "Total Budget" : "Quantity";
   const amountUnit = isMarketBuy ? quoteAsset : baseAsset;
 
@@ -88,19 +88,19 @@ export function SwapUI({ market }: { market: string }) {
       {/* Side Selector */}
       <div className="flex flex-row bg-[#0E1015] rounded-lg p-1 mb-4">
         <button
-          onClick={() => setActiveTab("buy")}
+          onClick={() => setActiveTab("BUY")}
           className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${
-            activeTab === "buy"
+            activeTab === "BUY"
               ? "bg-[#00C278] text-white"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          Buy
+          BUY
         </button>
         <button
-          onClick={() => setActiveTab("sell")}
+          onClick={() => setActiveTab("SELL")}
           className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${
-            activeTab === "sell"
+            activeTab === "SELL"
               ? "bg-[#F94D5C] text-white"
               : "text-slate-400 hover:text-white"
           }`}
@@ -205,7 +205,7 @@ export function SwapUI({ market }: { market: string }) {
           className={`mt-2 font-semibold h-12 rounded-xl text-sm text-white active:scale-[0.98] transition-all outline-none flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${
             !currentUser
               ? "bg-slate-800 text-slate-400 cursor-not-allowed"
-              : activeTab === "buy"
+              : activeTab === "BUY"
               ? "bg-[#00C278] hover:bg-[#00a868]"
               : "bg-[#F94D5C] hover:bg-[#e04552]"
           }`}
@@ -214,8 +214,8 @@ export function SwapUI({ market }: { market: string }) {
             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : !currentUser ? (
             "Log In to Place Order"
-          ) : activeTab === "buy" ? (
-            `Buy ${baseAsset}`
+          ) : activeTab === "BUY" ? (
+            `BUY ${baseAsset}`
           ) : (
             `Sell ${baseAsset}`
           )}

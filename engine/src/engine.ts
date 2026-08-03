@@ -100,9 +100,12 @@ class Engine {
         const redis = await RedisHandler.createInstance();
         try {
           console.log("order reached engine", order);
+          order.order_data.price = Number(order.order_data.price);
+          order.order_data.quantity = Number(order.order_data.quantity);
           const { price, quantity, side, type, base_asset, quote_asset } =
             order.order_data;
 
+            
           const isMarketSupported = SUPPORTED_MARKETS.some(
             (m) => m.base === base_asset && m.quote === quote_asset
           );
@@ -154,8 +157,8 @@ class Engine {
             fills,
             status,
             filled,
-            unsold_market_order_quanity = null,
-            unused_market_order_amount = null,
+            unsold_market_order_quanity = 0,
+            unused_market_order_amount = 0,
           } = data;
 
           const response = {
