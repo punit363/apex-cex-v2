@@ -46,7 +46,7 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Error creating user. Please try again`, 400);
     }
 
-    riskCheckClient.createUserBalance(
+    riskCheckClient.CreateUserBalance(
       { user_id },
       (err: any, response: any) => {
         if (err) {
@@ -148,7 +148,7 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Missing required request parameters`, 400);
     }
 
-    riskCheckClient.fetchUserBalance({ user_id }, (err: any, response: any) => {
+    riskCheckClient.FetchUserBalance({ user_id }, (err: any, response: any) => {
       if (err) {
         console.error("gRPC Request Failed:", err);
         return res.status(500).json({ message: "Risk check failed" });

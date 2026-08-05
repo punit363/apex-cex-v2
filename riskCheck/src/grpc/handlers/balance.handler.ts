@@ -47,7 +47,6 @@ const fetchUserBalanceHandler = async (
         balances: {},
       });
     }
-console.log(`User balance for ${user_id}:`, user_balance);
     console.log(`✅ [RISK CHECK] balance fetched for ${user_id}`);
 
     return callback(null, {
@@ -63,9 +62,47 @@ console.log(`User balance for ${user_id}:`, user_balance);
       success: false,
       message: riskError.message,
       user_id,
-      balances: null,
+      balances: {},
     });
   }
 };
 
-export { validateAndUpdateUserBalanceHandler, fetchUserBalanceHandler };
+const createUserBalanceHandler = async (
+  call: grpc.ServerUnaryCall<any, any>,
+  callback: grpc.sendUnaryData<any>
+) => {
+  const { user_id } = call.request;
+
+  try {
+    const user_balance = riskService.getUserBalance(user_id);
+
+    if (user_balance) {
+      return callback(null, {
+        success: false,
+        message: "❌ [RISK CHECK] Balance create: User balance already exists",
+        user_id,
+        balances: user_balance,
+      });
+    }
+    riskService.createUserBalance(user_id);
+    console.log(`✅ [RISK CHECK] balance created for ${user_id}`);
+
+    return callback(null, {
+      success: true,
+      message: "User balance created successfully.",
+    });
+  } catch (riskError: any) {
+    console.warn(`❌ [RISK CHECK] Balance create: ${riskError.message}`);
+
+    return callback(null, {
+      success: false,
+      message: riskError.message,
+    });
+  }
+};
+
+export {
+  validateAndUpdateUserBalanceHandler,
+  fetchUserBalanceHandler,
+  createUserBalanceHandler,
+};

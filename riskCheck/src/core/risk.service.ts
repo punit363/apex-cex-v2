@@ -219,6 +219,10 @@ export class RiskService {
   public getUserBalance(user_id: string): UserBalance | undefined {
     return this.balances.get(user_id);
   }
+
+  public createUserBalance(user_id: string): void {
+  const map = this.balances.set(user_id, { USDT: { available: 0, locked: 0 } });
+  }
 }
 
 export const riskService = new RiskService();

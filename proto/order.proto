@@ -20,12 +20,22 @@ message OrderRequest {
 }
 
 // Request sent from API Gateway to Risk Check
-message BalanceRequest {
+message BalanceUpdateRequest {
   string user_id = 1;
   string tx_id = 2;
   string asset = 3;
   string type = 4;
   int64 amount = 5;
+}
+
+// Request sent from API Gateway to Risk Check
+message BalanceFetchRequest {
+  string user_id = 1;
+}
+
+// Request sent from API Gateway to Risk Check
+message BalanceCreateRequest {
+  string user_id = 1;
 }
 
 // Response from Risk Check back to Gateway
@@ -43,7 +53,15 @@ message RiskCheckUpdateBalanceResponse {
 }
 
 // Response from Risk Check back to Gateway
-message RiskCheckfetchUserBalanceResponse {
+message RiskCheckFetchUserBalanceResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+  map<string, AssetBalance> balances = 4; // {"USDT": {available, locked}, "BTC": {available, locked}}
+}
+
+// Response from Risk Check back to Gateway
+message RiskCheckCreateUserBalanceResponse {
   bool success = 1;
   string message = 2;
   string user_id = 3;
@@ -53,6 +71,7 @@ message RiskCheckfetchUserBalanceResponse {
 // gRPC Service exposed by Risk Check Service
 service RiskService {
   rpc ValidateAndProcessOrder (OrderRequest) returns (RiskCheckOrderResponse);
-  rpc ValidateAndUpdateUserBalance (BalanceRequest) returns (RiskCheckUpdateBalanceResponse);
-  rpc fetchUserBalance (BalanceRequest) returns (RiskCheckfetchUserBalanceResponse);
+  rpc ValidateAndUpdateUserBalance (BalanceUpdateRequest) returns (RiskCheckUpdateBalanceResponse);
+  rpc FetchUserBalance (BalanceFetchRequest) returns (RiskCheckFetchUserBalanceResponse);
+  rpc CreateUserBalance (BalanceCreateRequest) returns (RiskCheckCreateUserBalanceResponse);
 }
