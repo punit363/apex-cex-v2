@@ -11,16 +11,30 @@ import {
 import { toast } from "react-hot-toast";
 import { CONFIG } from "../config";
 
-const SCALE = CONFIG.SATOSHI_SCALE;
+const SCALE = CONFIG.SATOSHI_SCALE || 100000000;
 
 interface AssetBalance {
-  available: number;
-  locked: number;
+  available: number | string;
+  locked: number | string;
 }
 
 interface UserBalances {
   [asset: string]: AssetBalance;
 }
+
+// Safe Satoshi-to-Unit Float Conversion
+const toUnits = (val: string | number | undefined): number => {
+  if (val === undefined || val === null) return 0;
+  const num = typeof val === "number" ? val : parseFloat(String(val));
+  return isNaN(num) ? 0 : num / SCALE;
+};
+
+// Safe Satoshi Raw Value Parser
+const toRawNumber = (val: string | number | undefined): number => {
+  if (val === undefined || val === null) return 0;
+  const num = typeof val === "number" ? val : parseFloat(String(val));
+  return isNaN(num) ? 0 : num;
+};
 
 export default function BalancePage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -38,39 +52,84 @@ export default function BalancePage() {
     const cachedBalances = localStorage.getItem("cached_balances");
     const cachedAssets = localStorage.getItem("cached_assets");
 
-    if (cachedBalances) setBalances(JSON.parse(cachedBalances));
-    if (cachedAssets) setAssets(JSON.parse(cachedAssets));
+    if (cachedBalances) {
+      try {
+        setBalances(JSON.parse(cachedBalances));
+      } catch {}
+    }
+    if (cachedAssets) {
+      try {
+        setAssets(JSON.parse(cachedAssets));
+      } catch {}
+    }
 
-    setCurrentUser(getActiveUser());
-    loadRequiredData();
+    const user = getActiveUser();
+    setCurrentUser(user);
+    loadRequiredData(user);
   }, []);
 
-  const loadRequiredData = async () => {
+  const loadRequiredData = async (userContext?: any) => {
     try {
+      const activeUser = userContext || getActiveUser();
+
+      // Resolve user_id across common property naming variants
+      const userId =
+        activeUser?.user_id ||
+        activeUser?.id ||
+        activeUser?.userId ||
+        activeUser?.user?.user_id;
+
+      console.log("🔍 Fetching balances for resolved User ID:", userId);
+
       const [balanceRes, assetList] = await Promise.allSettled([
-        getUserBalance(getActiveUser()?.user_id),
+        userId ? getUserBalance(userId) : Promise.reject("No user_id found"),
         getAssets(),
       ]);
 
-      if (
-        balanceRes.status === "fulfilled" &&
-        balanceRes.value?.status === "SUCCESS"
-      ) {
-        setBalances(balanceRes.value.data);
-        localStorage.setItem(
-          "cached_balances",
-          JSON.stringify(balanceRes.value.data)
-        );
+      // 1. Process & Sanitize Balances
+      if (balanceRes.status === "fulfilled" && balanceRes.value) {
+        const res = balanceRes.value;
+        // Unwrap data defensively across different response wrappers
+        const balanceData =
+          res.data?.balances || res.data || res.balances || res;
+
+        if (balanceData && typeof balanceData === "object") {
+          console.log("✅ Successfully received balance data:", balanceData);
+          setBalances(balanceData);
+          localStorage.setItem("cached_balances", JSON.stringify(balanceData));
+        }
+      } else {
+        console.warn("⚠️ Balance fetch failed or unfulfilled:", balanceRes);
       }
 
-      setAssets(["BTC", "USDT"]);
-      if (assetList.status === "fulfilled" && Array.isArray(assetList.value)) {
-        setAssets(assetList.value);
-        localStorage.setItem("cached_assets", JSON.stringify(assetList.value));
-        if (assetList.value.length > 0 && !selectedAsset)
-          setSelectedAsset(assetList.value[0]);
+      // 2. Process Assets List
+      let fetchedAssets: string[] = [];
+      if (
+        assetList.status === "fulfilled" &&
+        Array.isArray(assetList.value) &&
+        assetList.value.length > 0
+      ) {
+        fetchedAssets = assetList.value;
+      } else {
+        // Fallback default assets if assets endpoint is unavailable
+        fetchedAssets = ["BTC", "USDT", "ETH", "SOL"];
+      }
+
+      // Ensure any assets present in balanceData are also included in the table
+      const cached = localStorage.getItem("cached_balances");
+      const activeBalances = cached ? JSON.parse(cached) : {};
+      const combinedAssets = Array.from(
+        new Set([...fetchedAssets, ...Object.keys(activeBalances)])
+      );
+
+      setAssets(combinedAssets);
+      localStorage.setItem("cached_assets", JSON.stringify(combinedAssets));
+
+      if (combinedAssets.length > 0 && !selectedAsset) {
+        setSelectedAsset(combinedAssets[0]);
       }
     } catch (error) {
+      console.error("❌ Error in loadRequiredData:", error);
     } finally {
       setIsLoading(false);
     }
@@ -82,20 +141,41 @@ export default function BalancePage() {
     if (isNaN(amountVal) || amountVal <= 0)
       return toast.error("Enter a valid amount.");
 
+    const userId =
+      currentUser?.user_id ||
+      currentUser?.id ||
+      currentUser?.userId ||
+      getActiveUser()?.user_id;
+
+    if (!userId) return toast.error("User context missing. Please re-login.");
+
     setIsSubmitting(true);
     try {
       const response = await updateUserBalance({
-        user_id: currentUser.user_id,
+        user_id: userId,
         amount: Math.floor(amountVal * SCALE),
         asset: selectedAsset,
         type: modalType,
       });
 
-      if (response?.status === "SUCCESS") {
+      if (response?.status === "SUCCESS" || response?.success) {
         toast.success(`${modalType} successful!`);
-        setBalances(response.data.current_balance || response.data);
+        const updated =
+          response.data?.current_balance ||
+          response.data?.balances ||
+          response.data ||
+          response.balances;
+
+        if (updated) {
+          setBalances(updated);
+          localStorage.setItem("cached_balances", JSON.stringify(updated));
+        } else {
+          loadRequiredData(currentUser);
+        }
         setIsModalOpen(false);
         setAmountInput("");
+      } else {
+        toast.error(response?.message || "Transaction failed.");
       }
     } catch {
       toast.error("Transaction failed.");
@@ -104,9 +184,10 @@ export default function BalancePage() {
     }
   };
 
-  const getINRValue = (asset: string, qty: number) => {
+  const getINRValue = (asset: string, totalSatoshiUnits: number) => {
     const rates: { [key: string]: number } = {
       INR: 1,
+      USDT: 85,
       BTC: 8900000,
       ETH: 260000,
       SOL: 14500,
@@ -114,12 +195,13 @@ export default function BalancePage() {
       ADA: 85,
       DOGE: 35,
     };
-    return (qty / SCALE) * (rates[asset] || 1);
+    return (totalSatoshiUnits / SCALE) * (rates[asset] || 1);
   };
 
   const totalPortfolioValue = Object.keys(balances).reduce((sum, asset) => {
     const bal = balances[asset] || { available: 0, locked: 0 };
-    return sum + getINRValue(asset, bal.available + bal.locked);
+    const totalSatoshi = toRawNumber(bal.available) + toRawNumber(bal.locked);
+    return sum + getINRValue(asset, totalSatoshi);
   }, 0);
 
   return (
@@ -135,6 +217,7 @@ export default function BalancePage() {
               $
               {totalPortfolioValue.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               })}
             </h1>
           </div>
@@ -151,7 +234,7 @@ export default function BalancePage() {
                   setModalType("deposit");
                   setIsModalOpen(true);
                 }}
-                className="h-11 rounded-lg bg-[#00C278] hover:bg-[#00a868] text-white text-xs font-bold uppercase"
+                className="h-11 rounded-lg bg-[#00C278] hover:bg-[#00a868] text-white text-xs font-bold uppercase transition"
               >
                 Deposit
               </button>
@@ -160,7 +243,7 @@ export default function BalancePage() {
                   setModalType("withdraw");
                   setIsModalOpen(true);
                 }}
-                className="h-11 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold uppercase"
+                className="h-11 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold uppercase transition"
               >
                 Withdraw
               </button>
@@ -183,26 +266,35 @@ export default function BalancePage() {
               <tbody className="divide-y divide-slate-900/60">
                 {assets.map((asset) => {
                   const bal = balances[asset] || { available: 0, locked: 0 };
+                  const availUnits = toUnits(bal.available);
+                  const lockedUnits = toUnits(bal.locked);
+                  const totalUnits = availUnits + lockedUnits;
+                  const totalSatoshiRaw =
+                    toRawNumber(bal.available) + toRawNumber(bal.locked);
+
                   return (
                     <tr key={asset} className="hover:bg-slate-900/10">
                       <td className="px-6 py-4 font-bold text-slate-200">
                         {asset}
                       </td>
                       <td className="px-6 py-4 text-right text-[#00C278] font-mono">
-                        {(bal.available / SCALE).toFixed(4)}
+                        {availUnits.toFixed(4)}
                       </td>
                       <td className="px-6 py-4 text-right text-slate-400 font-mono">
-                        {(bal.locked / SCALE).toFixed(4)}
+                        {lockedUnits.toFixed(4)}
                       </td>
                       <td className="px-6 py-4 text-right font-mono font-bold text-white">
-                        {((bal.available + bal.locked) / SCALE).toFixed(4)}
+                        {totalUnits.toFixed(4)}
                       </td>
                       <td className="px-6 py-4 text-right text-slate-300 font-mono">
                         $
-                        {getINRValue(
-                          asset,
-                          bal.available + bal.locked
-                        ).toLocaleString()}
+                        {getINRValue(asset, totalSatoshiRaw).toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }
+                        )}
                       </td>
                     </tr>
                   );
@@ -229,7 +321,7 @@ export default function BalancePage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
+                    d="M6 18L18 6"
                   />
                 </svg>
               </button>

@@ -215,6 +215,10 @@ export class RiskService {
       throw new Error("Order side must be BUY or SELL");
     }
   };
+
+  public getUserBalance(user_id: string): UserBalance | undefined {
+    return this.balances.get(user_id);
+  }
 }
 
 export const riskService = new RiskService();

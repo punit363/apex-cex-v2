@@ -362,10 +362,14 @@ class Engine {
                 quantity: fill.quantity,
                 trade_id: fill.tradeId,
               };
-              await redis.saveTickerData(
-                `${base_asset}_${quote_asset}`,
-                ticker_trade
-              );
+              redis
+                .saveTickerData(`${base_asset}_${quote_asset}`, ticker_trade)
+                .catch((err) => {
+                  console.error(
+                    `[Error] Failed to sync save ticker data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+                    err.message
+                  );
+                });
             }
 
             addCandlesToDB(fills, base_asset, quote_asset);

@@ -16,6 +16,12 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Missing required request parameters`, 400);
     }
 
+    const user = await UserRepo.alreadyExists(email, phone);
+
+    if (user) {
+      throw new AppError("User already exist with this phone no or email", 400);
+    }
+
     const user_id = generateUserId();
 
     const saltRounds = 10;
@@ -30,20 +36,6 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
       phone: phone,
       password: hashedPassword,
     };
-
-    const user = {
-      user_id,
-    };
-
-    const redis = await RedisHandler.createInstance();
-    const engine_response = (await redis.sendAndAwait({
-      type: "USER",
-      user,
-    })) as EngineResponse;
-
-    if (engine_response.eng_status_code === 0) {
-      throw new AppError(engine_response.message, 400);
-    }
 
     const newUser = (await prisma.user.create({
       data: userdata,
@@ -123,7 +115,6 @@ const updateBalance = async (req: Request, res: Response): Promise<any> => {
         return res.status(200).json(response);
       }
     );
-
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/updateBalance:", error);
@@ -147,30 +138,23 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Missing required request parameters`, 400);
     }
 
-    const redis = await RedisHandler.createInstance();
-
-    const engine_response = (await redis.sendAndAwait({
-      type: "BALANCE",
-      transaction: {
-        action: "FETCH_BALANCE",
-        user_id,
-      },
-    })) as EngineResponse;
-
-    if (engine_response.eng_status_code === 0) {
-      throw new AppError(engine_response.message, 400);
-    }
-
-    return res
-      .status(200)
-      .send(
-        generateAPIResponse(
-          engine_response.data,
-          engine_response.message,
-          engine_response.status,
-          1
-        )
-      );
+    riskCheckClient.fetchUserBalance({ user_id }, (err: any, response: any) => {
+      if (err) {
+        console.error("gRPC Request Failed:", err);
+        return res.status(500).json({ message: "Risk check failed" });
+      }
+      
+      return res
+        .status(200)
+        .json(
+          generateAPIResponse(
+            response.balances,
+            "engine_response.message",
+            "engine_response.status",
+            1
+          )
+        );
+    });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in user/fetchUserBalance:", error);

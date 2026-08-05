@@ -2,6 +2,11 @@ syntax = "proto3";
 
 package exchange;
 
+message AssetBalance {
+  int64 available = 1;
+  int64 locked = 2;
+}
+
 // Request sent from API Gateway to Risk Check
 message OrderRequest {
   string user_id = 1;
@@ -31,14 +36,23 @@ message RiskCheckOrderResponse {
 }
 
 // Response from Risk Check back to Gateway
-message RiskCheckBalanceResponse {
+message RiskCheckUpdateBalanceResponse {
   bool success = 1;
   string message = 2;
   string tx_id = 3;
 }
 
+// Response from Risk Check back to Gateway
+message RiskCheckfetchUserBalanceResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+  map<string, AssetBalance> balances = 4; // {"USDT": {available, locked}, "BTC": {available, locked}}
+}
+
 // gRPC Service exposed by Risk Check Service
 service RiskService {
   rpc ValidateAndProcessOrder (OrderRequest) returns (RiskCheckOrderResponse);
-  rpc ValidateAndUpdateUserBalance (BalanceRequest) returns (RiskCheckBalanceResponse);
+  rpc ValidateAndUpdateUserBalance (BalanceRequest) returns (RiskCheckUpdateBalanceResponse);
+  rpc fetchUserBalance (BalanceRequest) returns (RiskCheckfetchUserBalanceResponse);
 }

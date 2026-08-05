@@ -161,7 +161,7 @@ export class Orderbook {
       status = "open",
     } = order_data;
     const fills: Fills[] = [];
-    let unsold_market_order_quanity: number  = null;
+    let unsold_market_order_quanity: number  = 0;
     const bid_splice_indexes: number[] = [];
 
     for (const o of this.bids) {
@@ -263,7 +263,7 @@ export class Orderbook {
     let { order_id, price, quantity, type, filled = 0, status } = order_data;
 
     const fills: Fills[] = [];
-    let unused_market_order_amount: number | null = null;
+    let unused_market_order_amount: number  = 0;
     const ask_splice_indexes: number[] = [];
 
     for (const o of this.asks) {

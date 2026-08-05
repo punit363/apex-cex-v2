@@ -22,7 +22,7 @@ const SCALE =
 // User credentials (ensure this user is seeded in your database)
 const USER_CONFIG = {
   email: "punit@gmail.com",
-  password: "12345678",
+  password: "1234567890",
 };
 
 // Global session-authenticated Axios client
@@ -95,7 +95,7 @@ async function runMarketMaker() {
       console.log(
         `[BOT] Placing ${side.toUpperCase()} limit order: ${(
           quantity / SCALE
-        ).toFixed(2)} ${BASE} @ ₹${(price / SCALE).toLocaleString()}`
+        ).toFixed(2)} ${BASE} @ $${(price / SCALE).toLocaleString()}`
       );
 
       // Submit order using session-bound cookie client
@@ -121,7 +121,7 @@ async function runMarketMaker() {
         await authenticate();
       }
     }
-  }, 1000);
+  }, 300);
 }
 
 runMarketMaker().catch(console.error);
