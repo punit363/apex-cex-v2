@@ -7,6 +7,7 @@ import RedisHandler from "../redis";
 import { generateAPIResponse, generateErrorResponse } from "../helper";
 import { AppError } from "../helper/error";
 import { riskCheckClient } from "../grpc/client";
+import { CONFIG } from "../config/config";
 
 const registerUser = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -44,6 +45,15 @@ const registerUser = async (req: Request, res: Response): Promise<any> => {
     if (!newUser) {
       throw new AppError(`Error creating user. Please try again`, 400);
     }
+
+    riskCheckClient.createUserBalance(
+      { user_id },
+      (err: any, response: any) => {
+        if (err) {
+          console.error("gRPC Request Failed:", err);
+        }
+      }
+    );
 
     const { password: _, ...userWithoutPassword } = newUser;
 
@@ -143,7 +153,7 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
         console.error("gRPC Request Failed:", err);
         return res.status(500).json({ message: "Risk check failed" });
       }
-      
+
       return res
         .status(200)
         .json(
@@ -172,24 +182,17 @@ const fetchUserBalance = async (req: Request, res: Response): Promise<any> => {
 
 const fetchAllAssets = async (req: Request, res: Response): Promise<any> => {
   try {
-    const redis = await RedisHandler.createInstance();
+    const markets = CONFIG.SUPPORTED_MARKETS;
 
-    // const engine_response = (await redis.sendAndAwait({
-    //   type: "MARKET",
-    //   market: {
-    //     action: "FETCH_ALL_ASSET",
-    //   },
-    // })) as EngineResponse;
-
-    // if (engine_response.eng_status_code === 0) {
-    //   throw new AppError(engine_response.message, 400);
-    // }
-
+    const assets = Array.from(
+      new Set(markets.flatMap((market: any) => [market.quote, market.base]))
+    );
+    console.log(assets);
     return res
       .status(200)
       .send(
         generateAPIResponse(
-          ["BTC", "USDT"],
+          assets,
           "engine_response.message",
           "engine_response.status",
           1
