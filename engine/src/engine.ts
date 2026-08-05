@@ -1,7 +1,8 @@
 import fs from "fs";
-import { Orderbook } from "./orderbook";
+import { Fills, Orderbook } from "./orderbook";
 import RedisHandler from "./redis";
 import { CONFIG } from "./config.js";
+import { generateCandleId } from "./utils";
 
 const SCALE = CONFIG.SCALE;
 
@@ -37,6 +38,69 @@ let SUPPORTED_MARKETS = [
   { base: "GRT", quote: "ETH" },
   { base: "DOT", quote: "ETH" },
 ];
+
+type Candle = {
+  bucket_time: number;
+  quote_asset: string;
+  base_asset: string;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+  vol: number;
+};
+
+let activeCandles = new Map<string, Candle>();
+
+const addCandlesToDB = async (
+  fills: Fills[],
+  baseAsset: string,
+  quoteAsset: string
+) => {
+  const market = `${baseAsset}_${quoteAsset}`;
+  let currentCandle = activeCandles.get(market);
+  for (const fill of fills) {
+    if (!currentCandle || currentCandle.bucket_time < fill.bucketTime) {
+      if (currentCandle) {
+        const redis = await RedisHandler.createInstance();
+        redis
+          .sendToDB({
+            action: "ADD_CANDLE",
+            candle: {
+              candle_id: generateCandleId(),
+              interval: "1m",
+              base_asset: baseAsset,
+              quote_asset: quoteAsset,
+              open: currentCandle.open,
+              high: currentCandle.high,
+              low: currentCandle.low,
+              close: currentCandle.close,
+              volume: currentCandle.vol,
+            },
+          })
+          .catch((err) => {
+            console.error(`[Error] Failed to sync ADD_CANDLE`, err.message);
+          });
+      }
+      currentCandle = {
+        bucket_time: fill.bucketTime,
+        quote_asset: quoteAsset,
+        base_asset: baseAsset,
+        open: fill.price,
+        close: fill.price,
+        high: fill.price,
+        low: fill.price,
+        vol: fill.quantity,
+      };
+    } else {
+      currentCandle.low = Math.min(currentCandle.low, fill.price);
+      currentCandle.high = Math.max(currentCandle.high, fill.price);
+      currentCandle.close = fill.price;
+      currentCandle.vol += fill.quantity;
+    }
+    activeCandles.set(market, currentCandle);
+  }
+};
 
 class Engine {
   orderbooks: Orderbook[] = [];
@@ -105,7 +169,6 @@ class Engine {
           const { price, quantity, side, type, base_asset, quote_asset } =
             order.order_data;
 
-            
           const isMarketSupported = SUPPORTED_MARKETS.some(
             (m) => m.base === base_asset && m.quote === quote_asset
           );
@@ -230,13 +293,19 @@ class Engine {
             trades: fills,
           };
 
-          redis.addTradeToRiskRouterStream(market, trade_data).catch((err) => { console.error(
-            `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
-            err.message
-          );
-        });
+          redis.addTradeToRiskRouterStream(market, trade_data).catch((err) => {
+            console.error(
+              `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
+              err.message
+            );
+          });
 
-          redis.publishTrade(market, trade_data).catch((err) => {
+          const trade_publish_data = {
+            market,
+            trade: fills,
+          };
+
+          redis.publishTrade(market, trade_publish_data).catch((err) => {
             console.error(
               `[Error] Failed to publish trade data, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,
               err.message
@@ -298,6 +367,8 @@ class Engine {
                 ticker_trade
               );
             }
+
+            addCandlesToDB(fills, base_asset, quote_asset);
 
             const trades = fills.map((fill) => ({
               trade_id: fill.tradeId,
@@ -395,7 +466,7 @@ class Engine {
           }
 
           const odb_response = orderbook.cancelOrder(user_id, order_id, side);
-          //update balance
+
           if (odb_response.data) {
             odb_response.data.status = "cancelled";
 
