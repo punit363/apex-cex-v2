@@ -2,10 +2,10 @@ import * as grpc from "@grpc/grpc-js";
 import { riskService } from "../../core/risk.service.js";
 import RedisHandler from "../../redis.js";
 
-export async function validateAndProcessOrderHandler(
+const validateAndProcessOrderHandler = async (
   call: grpc.ServerUnaryCall<any, any>,
   callback: grpc.sendUnaryData<any>
-) {
+) => {
   const {
     user_id,
     order_id,
@@ -55,9 +55,9 @@ export async function validateAndProcessOrderHandler(
       },
     };
 
-    const market = riskService.validateMarket(base_asset,quote_asset);
+    const market = riskService.validateMarket(base_asset, quote_asset);
 
-    if(!market) {
+    if (!market) {
       throw new Error(`Market not supported for ${base_asset}/${quote_asset}`);
     }
     const redis = await RedisHandler.createInstance();
@@ -89,4 +89,70 @@ export async function validateAndProcessOrderHandler(
       order_id,
     });
   }
-}
+};
+
+const cancelOrderHandler = async (
+  call: grpc.ServerUnaryCall<any, any>,
+  callback: grpc.sendUnaryData<any>
+) => {
+  const { user_id, order_id, side, base_asset, quote_asset } = call.request;
+
+  let numQuantity = 0;
+  let numPrice = 0;
+  let filled =0;
+  try {
+    riskService.settleBalanceAfterTradeCancellation(
+      user_id,
+      numQuantity,
+      filled,
+      numPrice,
+      side,
+      quote_asset,
+      base_asset
+    );
+    console.log(`✅ [RISK CHECK] Locked funds for order ${order_id}`);
+  } catch (riskError: any) {
+    console.warn(`❌ [RISK CHECK] Order rejected: ${riskError.message}`);
+
+    return callback(null, {
+      success: false,
+      message: riskError.message,
+      order_id,
+    });
+  }
+
+  try {
+    const market = riskService.validateMarket(base_asset, quote_asset);
+
+    if (!market) {
+      throw new Error(`Market not supported for ${base_asset}/${quote_asset}`);
+    }
+
+    return callback(null, {
+      success: true,
+      message: "Order risk check passed and submitted to engine.",
+      order_id,
+    });
+  } catch (engineError: any) {
+    console.error(
+      `❌ [ENGINE ERROR] Submission failed: ${engineError.message}. Rolling back locked funds...`
+    );
+    // what if engine returns error after trade is complete
+    // riskService.unlockBalance(
+    //   user_id,
+    //   numQuantity,
+    //   numPrice,
+    //   side,
+    //   quote_asset,
+    //   base_asset
+    // );
+
+    return callback(null, {
+      success: false,
+      message: engineError.message,
+      order_id,
+    });
+  }
+};
+
+export { validateAndProcessOrderHandler, cancelOrderHandler };

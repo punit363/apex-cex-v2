@@ -226,6 +226,45 @@ export class RiskService {
     }
   };
 
+
+public settleBalanceAfterTradeCancellation = (
+  userId: string,
+  quantity: number,
+  filled: number,
+  price: number,
+  side: string,
+  quote_asset: string,
+  base_asset: string
+) => {
+  const userBalance = this.balances.get(userId);
+
+  if (!userBalance) {
+    throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
+  }
+  const remainingQty = quantity - filled;
+
+  if (side === "sell") {
+    if (!userBalance[base_asset])
+      throw new Error(
+        `CRITICAL: ${base_asset} ledger missing for user: ${userId}`
+      );
+    userBalance[base_asset].locked -= remainingQty;
+    userBalance[base_asset].available += remainingQty;
+  } else if (side === "buy") {
+    if (!userBalance[quote_asset])
+      throw new Error(
+        `CRITICAL: ${quote_asset} ledger missing for user: ${userId}`
+      );
+
+    const remainingQuoteValue = Math.floor((remainingQty * price) / SCALE);
+
+    userBalance[quote_asset].locked -= remainingQuoteValue;
+    userBalance[quote_asset].available += remainingQuoteValue;
+  } else {
+    throw new Error("Order side must be buy or sell");
+  }
+};
+
   public getUserBalance(user_id: string): UserBalance | undefined {
     return this.balances.get(user_id);
   }

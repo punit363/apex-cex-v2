@@ -17,50 +17,7 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
     }
 
     const order_id = generateOrderId();
-    const redis = await RedisHandler.createInstance();
-    type OrderResponse = {
-      order_id: string;
-      fills: {
-        price: number;
-        quantity: number;
-        tradeId: string;
-        userId: string;
-        otherUserId: string;
-      }[];
-      unsold_market_order_quanity: number;
-      unused_market_order_amount: number;
-    };
 
-    // const engine_response = (await redis.sendAndAwait({
-    //   type: "ORDER",
-    //   order: {
-    //     action: "PLACE_ORDER",
-    //     user_id,
-    //     order_data: {
-    //       order_id,
-    //       price,
-    //       quantity,
-    //       side,
-    //       type,
-    //       baseAsset,
-    //       quoteAsset,
-    //     },
-    //   },
-    // })) as EngineResponse;
-
-    // if (!engine_response.data) {
-    //   throw new AppError(engine_response.message, 404);
-    // }
-    console.log({
-      user_id,
-      order_id,
-      price,
-      quantity,
-      side,
-      type,
-      base_asset: baseAsset,
-      quote_asset: quoteAsset,
-    });
     const payload = {
       user_id,
       order_id,
@@ -82,19 +39,6 @@ const placeOrder = async (req: Request, res: Response): Promise<any> => {
         return res.status(200).json(response);
       }
     );
-
-    // console.log(engine_response, "++++++grpc engine response");
-
-    // return res
-    //   .status(200)
-    //   .send(
-    //     generateAPIResponse(
-    //       engine_response.data,
-    //       engine_response.message,
-    //       engine_response.status,
-    //       1
-    //     )
-    //   );
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error("Error in order/placeOrder:", error);

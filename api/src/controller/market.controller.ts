@@ -53,9 +53,9 @@ const fetchDepth = async (req: Request, res: Response): Promise<any> => {
       throw new AppError(`Missing required request parameter`, 400);
     }
 
-    const redisHandler = await RedisHandler.createInstance();
+    const redis = await RedisHandler.createInstance();
 
-    const market_depth = await redisHandler.get(`DEPTH:${market}`);
+    const market_depth = await redis.get(`DEPTH:${market}`);
     const depth = JSON.parse(market_depth || "{}");
 
     if (market_depth) {
@@ -96,8 +96,6 @@ const fetchAllMarkets = async (req: Request, res: Response): Promise<any> => {
     }
 
     const markets = CONFIG.SUPPORTED_MARKETS
-
-   
 
     if (!markets) {
       throw new AppError("No markets supported yet", 404);
