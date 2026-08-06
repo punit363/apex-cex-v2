@@ -41,7 +41,6 @@ export async function validateAndProcessOrderHandler(
   }
 
   try {
-    const market = `${base_asset}_${quote_asset}`;
     const order = {
       user_id,
       action: "PLACE_ORDER",
@@ -55,6 +54,12 @@ export async function validateAndProcessOrderHandler(
         quote_asset,
       },
     };
+
+    const market = riskService.validateMarket(base_asset,quote_asset);
+
+    if(!market) {
+      throw new Error(`Market not supported for ${base_asset}/${quote_asset}`);
+    }
     const redis = await RedisHandler.createInstance();
 
     await redis.addOrderRequestToEngineStream(market, order);

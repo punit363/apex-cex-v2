@@ -5,6 +5,8 @@ import RedisHandler from "../redis.js";
 
 const SCALE = CONFIG.SCALE;
 
+const SUPPORTED_MARKETS = CONFIG.SUPPORTED_MARKETS;
+
 export class RiskService {
   private balances = new Map<string, UserBalance>();
 
@@ -45,6 +47,14 @@ export class RiskService {
       action: "ADD_TRANSACTION",
       transaction,
     });
+  };
+
+  public validateMarket = (base_asset: string, quote_asset: string) => {
+    const { base, quote } = SUPPORTED_MARKETS.find(
+      (market: any) =>
+        base_asset === market.base && quote_asset === market.quote
+    );
+    return `${base}_${quote}`;
   };
 
   public checkAndLockBalance(
@@ -221,7 +231,9 @@ export class RiskService {
   }
 
   public createUserBalance(user_id: string): void {
-  const map = this.balances.set(user_id, { USDT: { available: 0, locked: 0 } });
+    const map = this.balances.set(user_id, {
+      USDT: { available: 0, locked: 0 },
+    });
   }
 }
 
