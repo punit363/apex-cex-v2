@@ -226,44 +226,45 @@ export class RiskService {
     }
   };
 
+  public settleBalanceAfterTradeCancellation = (cancellation_detail: any) => {
+    const { user_id, quantity, filled, price, side, quote_asset, base_asset } =
+      cancellation_detail;
 
-public settleBalanceAfterTradeCancellation = (
-  userId: string,
-  quantity: number,
-  filled: number,
-  price: number,
-  side: string,
-  quote_asset: string,
-  base_asset: string
-) => {
-  const userBalance = this.balances.get(userId);
+    console.log(cancellation_detail, "cancellation details in risk service");
 
-  if (!userBalance) {
-    throw new Error(`Balance missing for user: ${JSON.stringify(userId)}`);
-  }
-  const remainingQty = quantity - filled;
+    const userBalance = this.balances.get(user_id);
 
-  if (side === "sell") {
-    if (!userBalance[base_asset])
-      throw new Error(
-        `CRITICAL: ${base_asset} ledger missing for user: ${userId}`
+    console.log(userBalance, "user balance in risk service");
+    if (!userBalance) {
+      throw new Error(`Balance missing for user: ${JSON.stringify(user_id)}`);
+    }
+    const remainingQty = quantity - filled;
+    console.log(remainingQty, "remaining quantity in risk service");
+    if (side === "SELL") {
+      if (!userBalance[base_asset])
+        throw new Error(
+          `CRITICAL: ${base_asset} ledger missing for user: ${user_id}`
+        );
+      console.log(
+        userBalance[base_asset],
+        "user balance for base asset in risk service"
       );
-    userBalance[base_asset].locked -= remainingQty;
-    userBalance[base_asset].available += remainingQty;
-  } else if (side === "buy") {
-    if (!userBalance[quote_asset])
-      throw new Error(
-        `CRITICAL: ${quote_asset} ledger missing for user: ${userId}`
-      );
+      userBalance[base_asset].locked -= remainingQty;
+      userBalance[base_asset].available += remainingQty;
+    } else if (side === "BUY") {
+      if (!userBalance[quote_asset])
+        throw new Error(
+          `CRITICAL: ${quote_asset} ledger missing for user: ${user_id}`
+        );
 
-    const remainingQuoteValue = Math.floor((remainingQty * price) / SCALE);
-
-    userBalance[quote_asset].locked -= remainingQuoteValue;
-    userBalance[quote_asset].available += remainingQuoteValue;
-  } else {
-    throw new Error("Order side must be buy or sell");
-  }
-};
+      const remainingQuoteValue = Math.floor((remainingQty * price) / SCALE);
+      console.log(remainingQuoteValue, "remaining quote value in risk service");
+      userBalance[quote_asset].locked -= remainingQuoteValue;
+      userBalance[quote_asset].available += remainingQuoteValue;
+    } else {
+      throw new Error("Order side must be buy or sell");
+    }
+  };
 
   public getUserBalance(user_id: string): UserBalance | undefined {
     return this.balances.get(user_id);

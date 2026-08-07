@@ -22,7 +22,7 @@ const SCALE =
 // User credentials (ensure this user is seeded in your database)
 const USER_CONFIG = {
   email: "punit@gmail.com",
-  password: "1234567890",
+  password: "12345678",
 };
 
 // Global session-authenticated Axios client

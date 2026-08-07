@@ -494,7 +494,7 @@ export class Orderbook {
     order_id: string,
     side: string
   ): EngineResponse<Order> => {
-    const normalizedSide = side.toLowerCase();
+    const normalizedSide = side.toUpperCase();
 
     const bookList = normalizedSide === "SELL" ? this.asks : this.bids;
     const depthMap =

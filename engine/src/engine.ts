@@ -275,8 +275,9 @@ class Engine {
 
           //Don't publish just trade, publish order and its respective trades, so that the client can update the order and trades in one go
           const trade_data = {
+            action: "TRADE_EXECUTED",
             market,
-            order: {
+            placed_order: {
               user_id: order.user_id,
               order_id,
               price,
@@ -492,16 +493,26 @@ class Engine {
               });
 
             orderbook.publishSnapshot();
+
+            const market = `${base_asset}_${quote_asset}`;
+
+            const cancellation_data = {
+              action: "ORDER_CANCELLATION",
+              market,
+              cancelled_order: {
+                order_id,
+                user_id: order.user_id,
+                side: odb_response.data.side,
+                quantity: odb_response.data.quantity,
+                filled: odb_response.data.filled,
+                price: odb_response.data.price,
+                base_asset,
+                quote_asset,
+              },
+            };
+
             redis
-              .sendApiResponse(
-                {
-                  eng_status_code: 1,
-                  status: "SUCCESS",
-                  message: "Order was cancelled successfully",
-                  data: odb_response.data,
-                },
-                engine_request_id
-              )
+              .addTradeToRiskRouterStream(market, cancellation_data)
               .catch((err) => {
                 console.error(
                   `[Failed to transmit API gateway success response, engine_request_id: ${engine_request_id}, order_id: ${order_id}, error:`,

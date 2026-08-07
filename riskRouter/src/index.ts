@@ -1,21 +1,19 @@
 import RedisHandler from "./redis.js";
-import RiskTradeRouter from "./router.js";
+import RiskRouter from "./router.js";
 import { getAllActiveSymbols } from "./utils/index.js";
 
 const main = async () => {
-  const router = new RiskTradeRouter();
+  const router = new RiskRouter();
 
   const redis = await RedisHandler.createInstance();
 
   const symbols = await getAllActiveSymbols(); // from shared config or a registry
   const streamKeys = symbols.map((s: string) => `trade:${s}`);
 
-  redis.consumeOrderLoop(
-    'trade:BTC_USDT',
-    async (order_data, id) =>{
-      console.log("order_data+++++++", order_data, "id", id);
-      await router.routeTradeDetails(order_data, id)}
-  );
+  redis.consumeOrderLoop("trade:BTC_USDT", async (engine_request, id) => {
+    console.log("order_data+++++++", engine_request, "id", id);
+    await router.routeEngineRequest(engine_request, id);
+  });
 };
 
 main();

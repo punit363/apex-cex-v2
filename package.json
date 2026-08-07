@@ -9,11 +9,12 @@
     "db",
     "sockets",
     "marketMaker",
-    "riskCheck"
+    "riskCheck",
+    "riskRouter"
   ],
   "scripts": {
-    "dev": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS' -c 'cyan.bold,magenta.bold,yellow.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets'",
-    "dev:all": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS,MARKETMAKER' -c 'cyan.bold,magenta.bold,yellow.bold,green.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets' 'npm run dev --workspace=marketmaker'",
+    "dev": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS,RISKCHECK,RISKROUTER' -c 'cyan.bold,magenta.bold,yellow.bold,blue.bold,orange.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets' 'npm run dev --workspace=riskCheck' 'npm run dev --workspace=riskRouter'",
+    "dev:all": "concurrently -k -p '[{name}]' -n 'FRONTEND,API,ENGINE,DB,SOCKETS,MARKETMAKER,RISKCHECK,RISKROUTER' -c 'cyan.bold,magenta.bold,yellow.bold,green.bold,blue.bold,orange.bold' 'npm run dev --workspace=frontend' 'npm run dev --workspace=api' 'npm run dev --workspace=engine' 'npm run dev --workspace=db' 'npm run dev --workspace=sockets' 'npm run dev --workspace=marketmaker'",
     "dev:frontend": "npm run dev --workspace=frontend",
     "dev:api": "npm run dev --workspace=api",
     "dev:engine": "npm run dev --workspace=engine",
