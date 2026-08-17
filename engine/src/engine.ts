@@ -109,6 +109,18 @@ class Engine {
     return this.orderbooks.get(this.marketKey(base_asset, quote_asset)) ?? null;
   }
 
+  private publishSnapshot(orderbook: Orderbook): void {
+    const { market, orderbook_data } = orderbook.getBookWithQuantity();
+    this.redis
+      .setBookWithQuantity(market, orderbook_data)
+      .catch((err) =>
+        console.error(
+          `[Orderbook] Failed to push snapshot for ${market}:`,
+          err.message
+        )
+      );
+  }
+
   processOrderRequest = async (
     order: OrderRequest,
     engine_request_id: string
@@ -153,8 +165,6 @@ class Engine {
         data,
       } = orderbook.placeOrder(order.user_id, {
         ...order.order_data,
-        price,
-        quantity,
       });
 
       if (!data) {
@@ -200,7 +210,8 @@ class Engine {
         quote_asset
       );
       this.publishOrderBookDepth(market, orderbook);
-      orderbook.publishSnapshot();
+
+      this.publishSnapshot(orderbook);
 
       await this.publishTradeData(
         market,
@@ -277,7 +288,7 @@ class Engine {
         return;
       }
 
-      odb_response.data.status = "cancelled";
+      odb_response.data.status = "CANCELLED";
 
       this.redis
         .sendToDB({
@@ -291,7 +302,7 @@ class Engine {
           )
         );
 
-      orderbook.publishSnapshot();
+      this.publishSnapshot(orderbook);
 
       const cancellation_data: OrderCancellation = {
         action: "ORDER_CANCELLATION",

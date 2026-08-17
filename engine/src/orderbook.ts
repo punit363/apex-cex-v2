@@ -1,25 +1,29 @@
-import RedisHandler from "./redis";
-import { generateTradeId } from "./utils";
+import RedisHandler from "./redis.js";
+import { generateTradeId } from "./utils/index.js";
 import { CONFIG } from "./config.js";
-import { EngineResponse, Fill, MatchResult, Order } from "./types/type";
+import {
+  EngineResponse,
+  Fill,
+  MatchResult,
+  Order,
+  Side,
+  Status,
+  IncomingOrder,
+  DepthMap,
+  OrderBookSnapshot,
+} from "./types/type.js";
 
 const SCALE = CONFIG.SCALE;
 
 export class Orderbook {
-  base_asset: string;
-  quote_asset: string;
+  readonly base_asset: string;
+  readonly quote_asset: string;
   bids: Order[];
   asks: Order[];
   lastTradeId: string;
   currentPrice: number;
 
-  bookWithQuantity: {
-    bids: { [price: number]: number };
-    asks: { [price: number]: number };
-  } = {
-    bids: {},
-    asks: {},
-  };
+  private bookWithQuantity: DepthMap = { bids: {}, asks: {} };
 
   constructor(
     base_asset: string,
@@ -27,354 +31,266 @@ export class Orderbook {
     bids: Order[],
     asks: Order[],
     lastTradeId: string,
-    currentPrice: number
+    currentPrice: number,
   ) {
     this.base_asset = base_asset;
     this.quote_asset = quote_asset;
-    this.bids = (bids || []).map((b) => ({
-      ...b,
-      price: Number(b.price),
-      quantity: Number(b.quantity),
-      filled: Number(b.filled || 0),
-    }));
-
-    this.asks = (asks || []).map((a) => ({
-      ...a,
-      price: Number(a.price),
-      quantity: Number(a.quantity),
-      filled: Number(a.filled || 0),
-    }));
     this.lastTradeId = lastTradeId;
     this.currentPrice = currentPrice;
+
+    this.bids = (bids ?? []).map(this.normalizeOrder);
+    this.asks = (asks ?? []).map(this.normalizeOrder);
 
     this.rebuildDepthCache();
   }
 
-  private rebuildDepthCache() {
-    this.bookWithQuantity.bids = {};
-    this.bookWithQuantity.asks = {};
+  private normalizeOrder = (o: Order): Order => ({
+    ...o,
+    price: Number(o.price),
+    quantity: Number(o.quantity),
+    filled: Number(o.filled ?? 0),
+  });
+
+  private rebuildDepthCache(): void {
+    this.bookWithQuantity = { bids: {}, asks: {} };
     for (const bid of this.bids) {
       this.bookWithQuantity.bids[bid.price] =
-        (this.bookWithQuantity.bids[bid.price] || 0) +
+        (this.bookWithQuantity.bids[bid.price] ?? 0) +
         (bid.quantity - bid.filled);
     }
     for (const ask of this.asks) {
       this.bookWithQuantity.asks[ask.price] =
-        (this.bookWithQuantity.asks[ask.price] || 0) +
+        (this.bookWithQuantity.asks[ask.price] ?? 0) +
         (ask.quantity - ask.filled);
     }
   }
 
-  updateCurrentPrice = (fills: Fill[]) => {
-    if (fills.length > 0) {
-      this.currentPrice = fills[fills.length - 1].price;
-    }
-  };
+  private marketKey(): string {
+    return `${this.base_asset}_${this.quote_asset}`;
+  }
 
-  updateLastTradeId = (fills: Fill[]) => {
-    if (fills.length > 0) {
-      this.lastTradeId = fills[fills.length - 1].tradeId;
-    }
-  };
+  private getBucketTime(): number {
+    const now = Date.now();
+    return now - (now % 60_000);
+  }
 
-  getBucketTime = () => {
-    const tradeTime = new Date().getTime();
-    const bucketTime = tradeTime - (tradeTime % 60000);
-    return bucketTime;
-  };
+  private updateDepth(
+    map: Record<number, number>,
+    price: number,
+    delta: number
+  ): void {
+    map[price] = (map[price] ?? 0) + delta;
+    if (map[price] <= 0) delete map[price];
+  }
 
-  getBookWithQuantity = () => {
-    return this.bookWithQuantity;
-  };
+  private orderStatus(filled: number, quantity: number): Status {
+    if (filled === 0) return "OPEN";
+    if (filled >= quantity) return "FILLED";
+    return "PARTIAL";
+  }
 
-  publishSnapshot = async () => {
-    try {
-      const market = `${this.base_asset}_${this.quote_asset}`;
-      const payload = {
-        bids: this.bookWithQuantity.bids,
-        asks: this.bookWithQuantity.asks,
-        currentPrice: this.currentPrice,
-      };
+  public getBookWithQuantity(): OrderBookSnapshot {
+    const market = this.marketKey();
+    const orderbook_data = {
+      bids: { ...this.bookWithQuantity.bids },
+      asks: { ...this.bookWithQuantity.asks },
+      currentPrice: this.currentPrice,
+    };
+    return { market, orderbook_data };
+  }
 
-      const redis = await RedisHandler.createInstance();
-      redis.setBookWithQuantity(market, payload);
-    } catch (error) {
-      console.error("Failed to push book snapshot to Redis:", error);
-    }
-  };
+  fetchOpenOrders(): { asks: Order[]; bids: Order[] } {
+    return {
+      asks: [...this.asks],
+      bids: [...this.bids],
+    };
+  }
 
-  private executeSellOrder = (
-    user_id: string,
-    order_data: {
-      order_id?: any;
-      price?: any;
-      quantity?: any;
-      side?: any;
-      type?: any;
-      filled?: any;
-      status?: any;
-    }
-  ): MatchResult => {
-    let {
-      order_id,
-      price,
-      quantity,
-      type,
-      filled = 0,
-      status = "open",
-    } = order_data;
+  private executeSellOrder(user_id: string, order: IncomingOrder): MatchResult {
+    const { order_id, price, quantity, type } = order;
+    let filled = order.filled ?? 0;
     const fills: Fill[] = [];
-    let unsold_market_order_quanity: number  = 0;
-    const bid_splice_indexes: number[] = [];
+    const toRemove: number[] = []; 
+    const bucketTime = this.getBucketTime(); 
 
-    for (const o of this.bids) {
-      if (price <= o.price || type === "market") {
-        const fillQuantity = Math.min(quantity - filled, o.quantity - o.filled);
-        o.filled += fillQuantity;
+    for (let i = 0; i < this.bids.length; i++) {
+      const bid = this.bids[i];
 
-        if (o.filled === o.quantity) {
-          o.status = "filled";
-        } else if (o.filled > 0) {
-          o.status = "partial";
-        }
+      const priceMatches = type === "MARKET" || price <= bid.price;
+      if (!priceMatches) continue;
 
-        this.bookWithQuantity.bids[o.price] =
-          (this.bookWithQuantity.bids[o.price] || 0) - fillQuantity;
+      const fillQty = Math.min(quantity - filled, bid.quantity - bid.filled);
+      if (fillQty <= 0) continue;
 
-        const tradeId = generateTradeId();
-        fills.push({
-          price: o.price,
-          quantity: fillQuantity,
-          tradeId,
-          userId: user_id,
-          otherUserId: o.userID,
-          orderId: order_id,
-          otherOrderId: o.orderId,
-          otherOrderFilled: o.filled,
-          otherOrderStatus: o.status,
-          bucketTime: this.getBucketTime(),
-        });
+      bid.filled += fillQty;
+      bid.status = this.orderStatus(bid.filled, bid.quantity);
 
-        filled += fillQuantity;
+      this.updateDepth(this.bookWithQuantity.bids, bid.price, -fillQty);
 
-        if (o.quantity === o.filled) {
-          bid_splice_indexes.push(this.bids.indexOf(o));
-        }
+      fills.push({
+        price: bid.price,
+        quantity: fillQty,
+        tradeId: generateTradeId(),
+        userId: user_id,
+        otherUserId: bid.userID,
+        orderId: order_id,
+        otherOrderId: bid.orderId,
+        otherOrderFilled: bid.filled,
+        otherOrderStatus: bid.status,
+        bucketTime,
+      });
+
+      filled += fillQty;
+
+      if (bid.filled >= bid.quantity) {
+        toRemove.push(i);
       }
 
-      if (this.bookWithQuantity.bids[o.price] <= 0) {
-        delete this.bookWithQuantity.bids[o.price];
-      }
-
-      if (filled === quantity) {
-        status = "filled";
-        break;
-      }
+      if (filled >= quantity) break;
     }
 
-    if (type === "limit") {
-      const odr: Order = {
+    for (let i = toRemove.length - 1; i >= 0; i--) {
+      this.bids.splice(toRemove[i], 1);
+    }
+
+    const status = this.orderStatus(filled, quantity);
+    const unsold_market_order_quantity =
+      type === "MARKET" ? quantity - filled : 0;
+
+    if (type === "LIMIT" && filled < quantity) {
+      const restingOrder: Order = {
         price,
         quantity,
         filled,
-        status:
-          filled === 0 ? "open" : filled < quantity ? "partial" : "filled",
+        status,
         orderId: order_id,
         side: "SELL",
         userID: user_id,
       };
 
-      if (filled < quantity) {
-        const index = this.asks.findIndex((el: Order) => el.price > odr.price);
-        if (index === -1) {
-          console.log("pushing to asks0000000000", odr);
-          this.asks.push(odr);
-        } else {
-          this.asks.splice(index, 0, odr);
-        }
-
-        this.bookWithQuantity.asks[price] =
-          (this.bookWithQuantity.asks[price] || 0) + quantity - filled;
+      const insertAt = this.asks.findIndex((a) => a.price > price);
+      if (insertAt === -1) {
+        this.asks.push(restingOrder);
+      } else {
+        this.asks.splice(insertAt, 0, restingOrder);
       }
-    } else if (quantity !== filled && type === "market") {
-      unsold_market_order_quanity = quantity - filled;
+      this.updateDepth(this.bookWithQuantity.asks, price, quantity - filled);
     }
 
-    this.bids = this.bids.filter((_, idx) => !bid_splice_indexes.includes(idx));
+    return { order_id, fills, status, filled, unsold_market_order_quantity };
+  }
 
-    return {
-      order_id,
-      fills,
-      status: filled === 0 ? "open" : filled < quantity ? "partial" : "filled",
-      filled,
-      unsold_market_order_quanity,
-    };
-  };
-
-  private executeBuyOrder = (
-    user_id: string,
-    order_data: {
-      order_id?: any;
-      price?: any;
-      quantity?: any;
-      side?: any;
-      type?: any;
-      filled?: number;
-      status?: any;
-    }
-  ): MatchResult => {
-    let { order_id, price, quantity, type, filled = 0, status } = order_data;
-
+  private executeBuyOrder(user_id: string, order: IncomingOrder): MatchResult {
+    const { order_id, type } = order;
+    let { price, quantity } = order;
+    let filled = order.filled ?? 0;
     const fills: Fill[] = [];
-    let unused_market_order_amount: number  = 0;
-    const ask_splice_indexes: number[] = [];
+    const toRemove: number[] = [];
+    const bucketTime = this.getBucketTime();
 
-    for (const o of this.asks) {
-      if (type === "market") {
-        const affordableBase = Math.floor((price * SCALE) / o.price);
-        const availableBase = o.quantity - o.filled;
-        const fillQuantity = Math.min(affordableBase, availableBase);
+    for (let i = 0; i < this.asks.length; i++) {
+      const ask = this.asks[i];
 
-        if (fillQuantity <= 0) break;
+      if (type === "LIMIT") {
+        if (price < ask.price) break;
 
-        o.filled += fillQuantity;
-        if (o.filled === o.quantity) {
-          o.status = "filled";
-        } else if (o.filled > 0) {
-          o.status = "partial";
-        }
-        this.bookWithQuantity.asks[o.price] =
-          (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
+        const fillQty = Math.min(quantity - filled, ask.quantity - ask.filled);
+        if (fillQty <= 0) continue;
 
-        const tradeId = generateTradeId();
+        ask.filled += fillQty;
+        ask.status = this.orderStatus(ask.filled, ask.quantity);
+        this.updateDepth(this.bookWithQuantity.asks, ask.price, -fillQty);
+
         fills.push({
-          price: o.price,
-          quantity: fillQuantity,
-          tradeId,
+          price: ask.price,
+          quantity: fillQty,
+          tradeId: generateTradeId(),
           userId: user_id,
-          otherUserId: o.userID,
+          otherUserId: ask.userID,
           orderId: order_id,
-          otherOrderId: o.orderId,
-          otherOrderFilled: o.filled,
-          otherOrderStatus: o.status,
-          bucketTime: this.getBucketTime(),
+          otherOrderId: ask.orderId,
+          otherOrderFilled: ask.filled,
+          otherOrderStatus: ask.status,
+          bucketTime,
         });
 
-        filled += fillQuantity;
-        price -= Math.floor((fillQuantity * o.price) / SCALE);
+        filled += fillQty;
+        if (ask.filled >= ask.quantity) toRemove.push(i);
+        if (filled >= quantity) break;
+      } else {
+        const affordableBase = Math.floor((price * SCALE) / ask.price);
+        const availableBase = ask.quantity - ask.filled;
+        const fillQty = Math.min(affordableBase, availableBase);
 
-        if (o.quantity === o.filled) {
-          ask_splice_indexes.push(this.asks.indexOf(o));
-        }
-      }
+        if (fillQty <= 0) break;
 
-      if (price >= o.price && type === "limit") {
-        const fillQuantity = Math.min(quantity - filled, o.quantity - o.filled);
-        o.filled += fillQuantity;
-        if (o.filled === o.quantity) {
-          o.status = "filled";
-        } else if (o.filled > 0) {
-          o.status = "partial";
-        }
+        ask.filled += fillQty;
+        ask.status = this.orderStatus(ask.filled, ask.quantity);
+        this.updateDepth(this.bookWithQuantity.asks, ask.price, -fillQty);
 
-        this.bookWithQuantity.asks[o.price] =
-          (this.bookWithQuantity.asks[o.price] || 0) - fillQuantity;
-
-        const tradeId = generateTradeId();
         fills.push({
-          price: o.price,
-          quantity: fillQuantity,
-          tradeId,
+          price: ask.price,
+          quantity: fillQty,
+          tradeId: generateTradeId(),
           userId: user_id,
-          otherUserId: o.userID,
+          otherUserId: ask.userID,
           orderId: order_id,
-          otherOrderId: o.orderId,
-          otherOrderFilled: o.filled,
-          otherOrderStatus: o.status,
-          bucketTime: this.getBucketTime(),
+          otherOrderId: ask.orderId,
+          otherOrderFilled: ask.filled,
+          otherOrderStatus: ask.status,
+          bucketTime,
         });
-        filled += fillQuantity;
 
-        if (o.quantity === o.filled) {
-          ask_splice_indexes.push(this.asks.indexOf(o));
-        }
-      }
+        filled += fillQty;
+        price -= Math.floor((fillQty * ask.price) / SCALE);
 
-      if (this.bookWithQuantity.asks[o.price] <= 0) {
-        delete this.bookWithQuantity.asks[o.price];
-      }
-
-      if (type === "limit" && quantity === filled) {
-        break;
-      }
-
-      if (type === "market" && price <= 0) {
-        break;
+        if (ask.filled >= ask.quantity) toRemove.push(i);
+        if (price <= 0) break;
       }
     }
 
-    if (quantity !== filled && type === "limit") {
-      const odr: Order = {
-        price,
+    for (let i = toRemove.length - 1; i >= 0; i--) {
+      this.asks.splice(toRemove[i], 1);
+    }
+
+    if (type === "LIMIT" && filled < quantity) {
+      const restingOrder: Order = {
+        price: order.price, 
         quantity,
+        filled,
+        status: this.orderStatus(filled, quantity),
         orderId: order_id,
         side: "BUY",
-        filled,
-        status: filled === 0 ? "open" : "partial",
         userID: user_id,
       };
-
-      const index = this.bids.findIndex((el: Order) => el.price < odr.price);
-      if (index === -1) {
-        console.log("pushing to bids0000000000", odr);
-        this.bids.push(odr);
+      const insertAt = this.bids.findIndex((b) => b.price < order.price);
+      if (insertAt === -1) {
+        this.bids.push(restingOrder);
       } else {
-        this.bids.splice(index, 0, odr);
+        this.bids.splice(insertAt, 0, restingOrder);
       }
-
-      this.bookWithQuantity.bids[price] =
-        (this.bookWithQuantity.bids[price] || 0) + quantity - filled;
+      this.updateDepth(
+        this.bookWithQuantity.bids,
+        order.price,
+        quantity - filled
+      );
     }
 
-    if (price !== 0 && type === "market") {
-      unused_market_order_amount = price;
-    }
+    const unused_market_order_amount = type === "MARKET" ? price : 0;
+    const status =
+      type === "LIMIT"
+        ? this.orderStatus(filled, quantity)
+        : price > 0
+        ? "PARTIAL"
+        : "FILLED";
 
-    this.asks = this.asks.filter((_, idx) => !ask_splice_indexes.includes(idx));
+    return { order_id, fills, status, filled, unused_market_order_amount };
+  }
 
-    if (type === "limit") {
-      if (filled === quantity) {
-        status = "filled";
-      } else {
-        status = "partial";
-      }
-    } else if (type === "market") {
-      if (price > 0) {
-        status = "partial";
-      } else {
-        status = "filled";
-      }
-    }
-
-    return {
-      order_id,
-      fills,
-      status,
-      filled,
-      unused_market_order_amount,
-    };
-  };
-
-  placeOrder = (
+  placeOrder(
     user_id: string,
-    order_data: {
-      order_id?: any;
-      price?: any;
-      quantity?: any;
-      side?: any;
-      type?: any;
-    }
-  ): EngineResponse<MatchResult> => {
+    order_data: IncomingOrder
+  ): EngineResponse<MatchResult> {
     const { side, quantity, price, type } = order_data;
 
     if (!user_id) {
@@ -386,79 +302,58 @@ export class Orderbook {
       };
     }
 
-    if (type === "limit" && (!price || price <= 0)) {
+    if (type === "LIMIT" && (!price || price <= 0)) {
       return {
         status: "FAILED",
         odb_status_code: 0,
-        message:
-          "Rejected: Limit orders require execution price greater than zero.",
+        message: "Rejected: limit orders require a price greater than zero.",
         data: null,
       };
     }
 
-    if (quantity <= 0 && !(type === "market" && side === "BUY")) {
-      return {
-        status: "FAILED",
-        odb_status_code: 0,
-        message: "Rejected: execution quantity must be greater than zero.",
-        data: null,
-      };
-    }
-
-    try {
-      if (side === "SELL") {
-        const result = this.executeSellOrder(user_id, order_data);
-        this.updateCurrentPrice(result.fills);
-        this.updateLastTradeId(result.fills);
-        console.log("===========", this.bids, "==========", this.asks);
-        return {
-          status: "SUCCESS",
-          odb_status_code: 1,
-          message: "Sell order processed successfully",
-          data: result,
-        };
-      } else if (side === "BUY") {
-        const result = this.executeBuyOrder(user_id, order_data);
-        this.updateCurrentPrice(result.fills);
-        this.updateLastTradeId(result.fills);
-        console.log("===========", this.bids, "==========", this.asks);
-        return {
-          status: "SUCCESS",
-          odb_status_code: 1,
-          message: "BUY order processed successfully",
-          data: result,
-        };
-      } else {
+    if (type !== "MARKET" || side !== "BUY") {
+      if (quantity <= 0) {
         return {
           status: "FAILED",
           odb_status_code: 0,
-          message: `Rejected: invalid trade side dimension '${side}'.`,
+          message: "Rejected: quantity must be greater than zero.",
           data: null,
         };
       }
+    }
+
+    try {
+      const execute =
+        side === "SELL" ? this.executeSellOrder : this.executeBuyOrder;
+      const result = execute.call(this, user_id, order_data);
+
+      if (result.fills.length > 0) {
+        this.currentPrice = result.fills[result.fills.length - 1].price;
+        this.lastTradeId = result.fills[result.fills.length - 1].tradeId;
+      }
+
+      return {
+        status: "SUCCESS",
+        odb_status_code: 1,
+        message: `${side} order processed successfully`,
+        data: result,
+      };
     } catch (err: any) {
       return {
         status: "FAILED",
         odb_status_code: 0,
-        message: `Engine Match Error: ${
-          err.message || "Execution exception occurred"
-        }`,
+        message: `Engine match error: ${err.message ?? "unexpected exception"}`,
         data: null,
       };
     }
-  };
+  }
 
-  fetchOpenOrders = () => {
-    return { asks: this.asks, bids: this.bids };
-  };
-
-  cancelOrder = (
+  cancelOrder(
     user_id: string,
     order_id: string,
     side: string
-  ): EngineResponse<Order> => {
-    const normalizedSide = side.toUpperCase();
-
+  ): EngineResponse<Order> {
+    const normalizedSide = side.toUpperCase() as Side;
     const bookList = normalizedSide === "SELL" ? this.asks : this.bids;
     const depthMap =
       normalizedSide === "SELL"
@@ -473,38 +368,31 @@ export class Orderbook {
       return {
         status: "FAILED",
         odb_status_code: 0,
-        message: "Order not found in active order books",
+        message: "Order not found in active order book.",
         data: null,
       };
     }
 
-    const orderToCancel = bookList[idx];
+    const order = bookList[idx];
 
-    if (orderToCancel.filled === orderToCancel.quantity) {
+    if (order.filled >= order.quantity) {
       return {
         status: "FAILED",
         odb_status_code: 0,
-        message: "Cancellation rejected. Order is already completely filled.",
+        message: "Cancellation rejected: order is already completely filled.",
         data: null,
       };
     }
 
-    const remainingQty = orderToCancel.quantity - orderToCancel.filled;
-    if (depthMap[orderToCancel.price] !== undefined) {
-      depthMap[orderToCancel.price] -= remainingQty;
-
-      if (depthMap[orderToCancel.price] <= 0) {
-        delete depthMap[orderToCancel.price];
-      }
-    }
-
+    const remainingQty = order.quantity - order.filled;
+    this.updateDepth(depthMap, order.price, -remainingQty);
     bookList.splice(idx, 1);
 
     return {
       status: "SUCCESS",
       odb_status_code: 1,
-      message: "Order cancelled successfully",
-      data: orderToCancel,
+      message: "Order cancelled successfully.",
+      data: order,
     };
-  };
+  }
 }
