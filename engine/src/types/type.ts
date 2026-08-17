@@ -98,7 +98,7 @@ interface TradeData {
     quote_asset: string;
     status: string;
     filled: number;
-    unsold_market_order_quanity: number;
+    unsold_market_order_quantity: number;
     unused_market_order_amount: number;
   };
   trades: Fill[];
@@ -126,6 +126,15 @@ interface OrderCancellation {
   };
 }
 
+interface PlaceOrderResult {
+  order_id: string;
+  fills: Fill[];
+  status: string;
+  filled: number;
+  unsold_market_order_quantity: number;
+  unused_market_order_amount: number;
+}
+
 export {
   OrderRequest,
   Candle,
@@ -138,4 +147,5 @@ export {
   TradeData,
   Ticker,
   OrderCancellation,
+  PlaceOrderResult,
 };
