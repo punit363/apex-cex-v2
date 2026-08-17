@@ -10,7 +10,7 @@ export const OrderRepo = {
   updateFilledAndStatus: async (data: {
     order_id: string;
     filled: number;
-    status: "open" | "partial" | "cancelled" | "filled";
+    status: "OPEN" | "PARTIAL" | "CANCELLED" | "FILLED";
   }) => {
     return prisma.order.update({
       data: { filled_quantity: data.filled, status: data.status },
@@ -22,7 +22,7 @@ export const OrderRepo = {
 
   cancelOrder: async (data: {
     order_id: string;
-    status: "cancelled";
+    status: "CANCELLED";
   }) => {
     return prisma.order.update({
       data: { status: data.status },
@@ -39,12 +39,12 @@ export const OrderRepo = {
   getUserOrders: async (
     userId: string,
     market: string,
-    type: "open" | "history"
+    type: "OPEN" | "PARTIAL" | "FILLED" | "CANCELLED"
   ) => {
     const [base_asset, quote_asset] = market.split("_");
 
     const targetStatuses =
-      type === "open" ? ["open", "partial"] : ["filled", "cancelled"];
+      type === "OPEN" ? ["OPEN", "PARTIAL"] : ["FILLED", "CANCELLED"];
 
     const orders = await prisma.order.findMany({
       where: {

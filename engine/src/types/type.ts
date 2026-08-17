@@ -4,7 +4,7 @@ interface Order {
   price: number;
   quantity: number;
   filled: number;
-  status: "open" | "filled" | "cancelled" | "partial";
+  status: "OPEN" | "FILLED" | "CANCELLED" | "PARTIAL";
   side: "BUY" | "SELL";
 }
 
@@ -33,7 +33,7 @@ interface MatchResult {
   fills: Fill[];
   status: string;
   filled: number;
-  unsold_market_order_quanity?: number;
+  unsold_market_order_quantity?: number;
   unused_market_order_amount?: number;
 }
 
@@ -41,13 +41,13 @@ interface OrderRequest {
   action: string;
   user_id: string;
   order_data: {
-    order_id?: any;
-    price?: any;
-    quantity?: any;
-    side?: any;
-    type?: any;
-    base_asset?: any;
-    quote_asset?: any;
+    order_id: any;
+    price: any;
+    quantity: any;
+    side: any;
+    type: any;
+    base_asset: any;
+    quote_asset: any;
   };
 }
 
@@ -135,6 +135,34 @@ interface PlaceOrderResult {
   unused_market_order_amount: number;
 }
 
+type Side = "BUY" | "SELL";
+type Status = "OPEN" | "FILLED" | "CANCELLED" | "PARTIAL";
+type OrderType = "LIMIT" | "MARKET";
+
+interface IncomingOrder {
+  order_id: string;
+  price: number;
+  quantity: number;
+  side: Side;
+  type: OrderType;
+  filled?: number;
+  status?: string;
+}
+
+interface DepthMap {
+  bids: Record<number, number>;
+  asks: Record<number, number>;
+}
+
+interface OrderBookSnapshot {
+  market: string;
+  orderbook_data: {
+    bids: Record<number, number>;
+    asks: Record<number, number>;
+    currentPrice: number;
+  };
+}
+
 export {
   OrderRequest,
   Candle,
@@ -148,4 +176,10 @@ export {
   Ticker,
   OrderCancellation,
   PlaceOrderResult,
+  Side,
+  Status,
+  OrderType,
+  IncomingOrder,
+  DepthMap,
+  OrderBookSnapshot,
 };

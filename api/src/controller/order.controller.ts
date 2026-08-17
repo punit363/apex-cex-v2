@@ -58,7 +58,7 @@ const getOrders = async (req: Request, res: Response): Promise<any> => {
   try {
     const user_id = req.user_id as string;
     const market = req.query.market as string;
-    const type = req.query.type as "open" | "history";
+    const type = req.query.type as "OPEN" | "FILLED" | "CANCELLED";
 
     if (!user_id || !market || !type) {
       throw new AppError(`Missing required request parameters`, 400);

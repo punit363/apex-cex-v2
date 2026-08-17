@@ -9,7 +9,9 @@ import { CONFIG } from "../config";
 const SCALE = CONFIG.SATOSHI_SCALE;
 
 export function OrdersPanel({ market }: { market: string }) {
-  const [activeTab, setActiveTab] = useState<"open" | "history">("open");
+  const [activeTab, setActiveTab] = useState<
+    "OPEN" | "PARTIAL" | "FILLED" | "CANCELLED"
+  >("OPEN");
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -44,7 +46,7 @@ export function OrdersPanel({ market }: { market: string }) {
       const newOrder = data.order;
       if (!newOrder) return;
 
-      if (activeTab === "open") {
+      if (activeTab === "OPEN") {
         setOrders((prev) => {
           const orderId = newOrder.orderId || newOrder.order_id;
           const exists = prev.find(
@@ -94,9 +96,9 @@ export function OrdersPanel({ market }: { market: string }) {
       <div className="flex flex-row items-center justify-between px-4 h-[40px] shrink-0 border-b border-slate-800/50">
         <div className="flex gap-6 h-full">
           <button
-            onClick={() => setActiveTab("open")}
+            onClick={() => setActiveTab("OPEN")}
             className={`text-xs font-bold h-full border-b-2 ${
-              activeTab === "open"
+              activeTab === "OPEN"
                 ? "border-blue-500 text-white"
                 : "border-transparent text-slate-500"
             }`}
@@ -104,9 +106,9 @@ export function OrdersPanel({ market }: { market: string }) {
             Open Orders
           </button>
           <button
-            onClick={() => setActiveTab("history")}
+            onClick={() => setActiveTab("FILLED")}
             className={`text-xs font-bold h-full border-b-2 ${
-              activeTab === "history"
+              activeTab === "FILLED"
                 ? "border-blue-500 text-white"
                 : "border-transparent text-slate-500"
             }`}
@@ -129,7 +131,7 @@ export function OrdersPanel({ market }: { market: string }) {
       >
         <div
           className={`grid ${
-            activeTab === "open" ? "grid-cols-8" : "grid-cols-7"
+            activeTab === "OPEN" ? "grid-cols-8" : "grid-cols-7"
           } gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-800/30 min-h-[36px] items-center`}
         >
           <div>Time</div>
@@ -139,14 +141,14 @@ export function OrdersPanel({ market }: { market: string }) {
           <div className="text-right">Amount</div>
           <div className="text-right">Filled</div>
           <div className="text-right">Status</div>
-          {activeTab === "open" && <div className="text-right">Action</div>}
+          {activeTab === "OPEN" && <div className="text-right">Action</div>}
         </div>
 
         {orders.map((o, i) => (
           <div
             key={o.orderId || o.order_id || i}
             className={`grid ${
-              activeTab === "open" ? "grid-cols-8" : "grid-cols-7"
+              activeTab === "OPEN" ? "grid-cols-8" : "grid-cols-7"
             } gap-4 px-4 py-3 text-xs font-bold border-b border-slate-800/20 items-center group`}
           >
             <div className="text-slate-500">
@@ -192,7 +194,7 @@ export function OrdersPanel({ market }: { market: string }) {
               {o.status}
             </div>
 
-            {activeTab === "open" && (
+            {activeTab === "OPEN" && (
               <div className="text-right">
                 <button
                   onClick={() => handleCancel(o.orderId || o.order_id, o.side)}

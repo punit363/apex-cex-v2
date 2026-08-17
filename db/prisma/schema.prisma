@@ -34,7 +34,7 @@ type             String   // limit | market
 quantity         Float    //Satoshi-scaled Integer (1 BTC = 100,000,000)
 filled_quantity  Float    @default(0)
 price            Float    //Satoshi-scaled Integer
-status           String   @default("open")   // open | partial | filled | cancelled
+status           String   @default("OPEN")   // OPEN | PARTIAL | FILLED | CANCELLED
 base_asset       String
 quote_asset      String
 created_at       DateTime @default(now())

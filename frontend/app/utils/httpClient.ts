@@ -219,7 +219,7 @@ export async function getTicker(market: string) {
   return handleResponse(response.data);
 }
 
-export async function getUserOrders(market: string, type: "open" | "history") {
+export async function getUserOrders(market: string, type: "OPEN" | "PARTIAL" | "FILLED" | "CANCELLED") {
   const response = await apiClient.get(`/order?market=${market}&type=${type}`);
   return handleResponse(response.data);
 }
