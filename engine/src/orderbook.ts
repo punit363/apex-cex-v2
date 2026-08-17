@@ -1,50 +1,13 @@
 import RedisHandler from "./redis";
 import { generateTradeId } from "./utils";
 import { CONFIG } from "./config.js";
+import { EngineResponse, Fill, MatchResult, Order } from "./types/type";
 
 const SCALE = CONFIG.SCALE;
-export interface Order {
-  orderId: string;
-  userID: string;
-  price: number;
-  quantity: number;
-  filled: number;
-  status: "open" | "filled" | "cancelled" | "partial";
-  side: "BUY" | "SELL";
-}
-
-export interface Fills {
-  price: number;
-  quantity: number;
-  userId: string;
-  otherUserId: string;
-  tradeId: string;
-  orderId: string;
-  otherOrderId: string;
-  otherOrderFilled: number;
-  otherOrderStatus: string;
-  bucketTime: number;
-}
-
-export interface EngineResponse<T> {
-  status: "SUCCESS" | "FAILED";
-  odb_status_code: number;
-  message: string;
-  data: T | null;
-}
-
-export interface MatchResult {
-  order_id: string;
-  fills: Fills[];
-  status: string;
-  filled: number;
-  unsold_market_order_quanity?: number;
-  unused_market_order_amount?: number;
-}
 
 export class Orderbook {
-  baseAsset: string;
-  quoteAsset: string;
+  base_asset: string;
+  quote_asset: string;
   bids: Order[];
   asks: Order[];
   lastTradeId: string;
@@ -59,15 +22,15 @@ export class Orderbook {
   };
 
   constructor(
-    baseAsset: string,
-    quoteAsset: string,
+    base_asset: string,
+    quote_asset: string,
     bids: Order[],
     asks: Order[],
     lastTradeId: string,
     currentPrice: number
   ) {
-    this.baseAsset = baseAsset;
-    this.quoteAsset = quoteAsset;
+    this.base_asset = base_asset;
+    this.quote_asset = quote_asset;
     this.bids = (bids || []).map((b) => ({
       ...b,
       price: Number(b.price),
@@ -102,13 +65,13 @@ export class Orderbook {
     }
   }
 
-  updateCurrentPrice = (fills: Fills[]) => {
+  updateCurrentPrice = (fills: Fill[]) => {
     if (fills.length > 0) {
       this.currentPrice = fills[fills.length - 1].price;
     }
   };
 
-  updateLastTradeId = (fills: Fills[]) => {
+  updateLastTradeId = (fills: Fill[]) => {
     if (fills.length > 0) {
       this.lastTradeId = fills[fills.length - 1].tradeId;
     }
@@ -126,7 +89,7 @@ export class Orderbook {
 
   publishSnapshot = async () => {
     try {
-      const market = `${this.baseAsset}_${this.quoteAsset}`;
+      const market = `${this.base_asset}_${this.quote_asset}`;
       const payload = {
         bids: this.bookWithQuantity.bids,
         asks: this.bookWithQuantity.asks,
@@ -160,7 +123,7 @@ export class Orderbook {
       filled = 0,
       status = "open",
     } = order_data;
-    const fills: Fills[] = [];
+    const fills: Fill[] = [];
     let unsold_market_order_quanity: number  = 0;
     const bid_splice_indexes: number[] = [];
 
@@ -262,7 +225,7 @@ export class Orderbook {
   ): MatchResult => {
     let { order_id, price, quantity, type, filled = 0, status } = order_data;
 
-    const fills: Fills[] = [];
+    const fills: Fill[] = [];
     let unused_market_order_amount: number  = 0;
     const ask_splice_indexes: number[] = [];
 

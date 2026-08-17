@@ -106,20 +106,6 @@ const cancelOrder = async (req: Request, res: Response): Promise<any> => {
 
     const redis = await RedisHandler.createInstance();
 
-    // const engine_response = (await redis.sendAndAwait({
-    //   type: "ORDER",
-    //   order: {
-    //     user_id,
-    //     action: "CANCEL_ORDER",
-    //     order_data: {
-    //       order_id,
-    //       side,
-    //       baseAsset: base_asset,
-    //       quoteAsset: quote_asset,
-    //     },
-    //   },
-    // })) as EngineResponse;
-
     const market = `${base_asset}_${quote_asset}`;
     const order = {
       user_id,
