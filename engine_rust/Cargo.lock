@@ -131,6 +131,7 @@ dependencies = [
  "dotenvy",
  "ordered-float",
  "proptest",
+ "rand 0.10.2",
  "redis",
  "serde",
  "serde_json",
