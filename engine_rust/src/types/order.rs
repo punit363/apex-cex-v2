@@ -66,7 +66,7 @@ struct OrderPublishData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OrderPublish {
+pub struct PublishOrder {
     pub market: String,
     pub order_data: OrderPublishData,
 }

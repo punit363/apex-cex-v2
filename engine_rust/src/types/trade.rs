@@ -40,6 +40,12 @@ pub struct TradeData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PublishTrade {
+    pub market: String,
+    pub trades: Vec<Fill>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchResult {
     pub order_id: String,
     pub fills: Vec<Fill>,

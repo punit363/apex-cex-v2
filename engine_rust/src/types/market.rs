@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 use std::collections::BTreeMap;
+use crate::types::order::Order;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -84,21 +85,45 @@ pub struct Ticker {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PublishTickerData {
+    pub low: u64,
+    pub high: u64,
+    pub volume: u64,
+    pub open: u64,
+    pub close: u64,
+    pub last_price: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PublishTicker {
+    pub market: String,
+    pub price: PublishTickerData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct DepthMap {
     pub bids: BTreeMap<u64, u64>,
     pub asks: BTreeMap<u64, u64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct OrderBookData {
-    pub bids: BTreeMap<u64, u64>,
-    pub asks: BTreeMap<u64, u64>,
-    #[serde(rename = "currentPrice")]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Orderbook {
+    pub quote_asset: String,
+    pub base_asset: String,
+    pub bids: Vec<Order>,
+    pub asks: Vec<Order>,
+    pub last_trade_id: String,
     pub current_price: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct OrderBookSnapshot {
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PublishBookWithQuantityData {
+    pub bids: Vec<Order>,
+    pub asks: Vec<Order>,
+    pub current_price: u64,
+}
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct PublishBookWithQuantity {
     pub market: String,
-    pub orderbook_data: OrderBookData,
+    orderbook_data: PublishBookWithQuantityData,
 }

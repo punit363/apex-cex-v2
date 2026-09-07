@@ -2,7 +2,7 @@ use std::error::Error;
 
 use redis::{ AsyncCommands, RedisError, aio::ConnectionManager };
 
-use crate::types::db::DbRequest;
+use crate::types::{ db::DbRequest, market::{Candle, PublishBookWithQuantity, PublishTicker, Ticker}, order::PublishOrder, trade::PublishTrade };
 
 struct RedisHandler {
     client: ConnectionManager,
@@ -28,4 +28,50 @@ impl RedisHandler {
         let _: () = self.client.lpush("DB_UPDATE", serialized).await?;
         Ok(())
     }
+
+    pub async fn publish_order(
+        &mut self,
+        market: String,
+        payload: PublishOrder
+    ) -> Result<(), Box<dyn Error>> {
+        let serialized = serde_json::to_string(&payload)?;
+        let _: () = self.publisher.publish(market, serialized).await?;
+
+        Ok(())
+    }
+
+    pub async fn publish_trade(
+        &mut self,
+        market: String,
+        payload: PublishTrade
+    ) -> Result<(), Box<dyn Error>> {
+        let serialized = serde_json::to_string(&payload)?;
+        let _: () = self.publisher.publish(market, serialized).await?;
+
+        Ok(())
+    }
+
+    pub async fn publish_ticker(
+        &mut self,
+        market: String,
+        payload: PublishTicker
+    ) -> Result<(), Box<dyn Error>> {
+        let serialized = serde_json::to_string(&payload)?;
+        let _: () = self.publisher.publish(market, serialized).await?;
+
+        Ok(())
+    }
+
+    pub async fn publish_book_with_quantity(
+        &mut self,
+        market: String,
+        payload: PublishBookWithQuantity
+    ) -> Result<(), Box<dyn Error>> {
+        let serialized = serde_json::to_string(&payload)?;
+        let _: () = self.publisher.publish(market, serialized).await?;
+
+        Ok(())
+    }
+
+
 }
