@@ -1,8 +1,11 @@
 use std::error::Error;
-
 use redis::{ AsyncCommands, RedisError, aio::ConnectionManager };
-
-use crate::types::{ db::DbRequest, market::{Candle, PublishBookWithQuantity, PublishTicker, Ticker}, order::PublishOrder, trade::PublishTrade };
+use crate::types::{
+    db::DbRequest,
+    market::{ Candle, PublishBookWithQuantity, PublishTicker, Ticker },
+    order::PublishOrder,
+    trade::{ PublishTrade, TradeData },
+};
 
 struct RedisHandler {
     client: ConnectionManager,
@@ -35,7 +38,8 @@ impl RedisHandler {
         payload: PublishOrder
     ) -> Result<(), Box<dyn Error>> {
         let serialized = serde_json::to_string(&payload)?;
-        let _: () = self.publisher.publish(market, serialized).await?;
+        let stream_key = format!("ORDER:{}", market);
+        let _: () = self.publisher.publish(stream_key, serialized).await?;
 
         Ok(())
     }
@@ -46,7 +50,8 @@ impl RedisHandler {
         payload: PublishTrade
     ) -> Result<(), Box<dyn Error>> {
         let serialized = serde_json::to_string(&payload)?;
-        let _: () = self.publisher.publish(market, serialized).await?;
+        let stream_key = format!("TRADE:{}", market);
+        let _: () = self.publisher.publish(stream_key, serialized).await?;
 
         Ok(())
     }
@@ -57,7 +62,8 @@ impl RedisHandler {
         payload: PublishTicker
     ) -> Result<(), Box<dyn Error>> {
         let serialized = serde_json::to_string(&payload)?;
-        let _: () = self.publisher.publish(market, serialized).await?;
+        let stream_key = format!("TICKER:{}", market);
+        let _: () = self.publisher.publish(stream_key, serialized).await?;
 
         Ok(())
     }
@@ -68,10 +74,17 @@ impl RedisHandler {
         payload: PublishBookWithQuantity
     ) -> Result<(), Box<dyn Error>> {
         let serialized = serde_json::to_string(&payload)?;
-        let _: () = self.publisher.publish(market, serialized).await?;
+        let stream_key = format!("BOOK:{}", market);
+        let _: () = self.publisher.publish(stream_key, serialized).await?;
 
         Ok(())
     }
 
+    pub async fn add_to_rist_router_stream(&mut self, market: String, payload: TradeData)->Result<(),Box<dyn Error>> {
+        let stream_key = format!("trade:{}", market);
+        let serialized = serde_json::to_string(&payload)?;
 
+        let _: () = self.client.xadd(stream_key, "*", &[("payload", serialized)]).await?;
+        Ok(())
+    }
 }
