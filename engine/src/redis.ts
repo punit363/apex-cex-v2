@@ -27,11 +27,6 @@ class RedisHandler {
     );
   };
 
-  getMessage = async () => {
-    const message = await this.client.brPop("MESSAGE", 0);
-    return message;
-  };
-
   sendToDB = async (data: any) => {
     const order = this.client.lPush("DB_UPDATE", JSON.stringify(data));
     return order;

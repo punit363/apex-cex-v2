@@ -96,8 +96,16 @@ pub struct PublishTickerData {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PublishTicker {
+    pub market: &str,
+    pub ticker: PublishTickerData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SaveTicker {
     pub market: String,
-    pub price: PublishTickerData,
+    pub price: u64,
+    pub quantity: u64,
+    pub trade_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
