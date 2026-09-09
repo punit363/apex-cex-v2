@@ -7,8 +7,8 @@ use crate::{
     utils::{ id::generate_trade_id, time::get_bucket_time },
 };
 
-fn order_status(filled: &u64, quantity: &u64) -> OrderStatus {
-    if filled == &0 {
+fn order_status(filled: u64, quantity: u64) -> OrderStatus {
+    if filled == 0 {
         OrderStatus::Open
     } else if filled >= quantity {
         OrderStatus::Filled
@@ -22,47 +22,43 @@ pub fn execute_sell_order(
     order: &IncommingOrder,
     bids: &mut Vec<Order>,
     asks: &mut Vec<Order>,
-    depth: &mut DepthMap,
+    depth: &mut DepthMap
 ) -> MatchResult {
-    let IncommingOrder { order_id, price, quantity, side, order_type, filled, status } = order;
-    let mut filled = match filled {
-        Some(val) => val.clone(),
-        None => 0,
-    };
+    let IncommingOrder { order_id, price, quantity, order_type, filled, .. } = order;
+    let mut filled = filled.unwrap_or(0);
 
     let mut fills: Vec<Fill> = Vec::new();
-    let mut to_remove: Vec<u64> = Vec::new();
+    let mut to_remove: Vec<usize> = Vec::new();
     let bucket_time = get_bucket_time();
 
     for i in 0..bids.len() {
         let bid = &mut bids[i];
 
         //why &&?
-        if !(order_type == &OrderType::Market || &price <= &&bid.price) {
+        if !(order_type == &OrderType::Market || price <= &bid.price) {
             continue;
         }
 
         let fill_qty = (quantity - filled).min(&bid.quantity - &bid.filled);
 
-        if fill_qty <= 0 {
+        if fill_qty == 0 {
             continue;
         }
 
-        bid.filled += &fill_qty;
-        bid.status = order_status(&filled, quantity);
+        bid.filled += fill_qty;
+        bid.status = order_status(bid.filled, bid.quantity);
 
-        //TODO: updatDepth
-        depth.remove("bid", bid.price, bid.quantity);
+        depth.remove(&OrderSide::Buy, bid.price, fill_qty);
 
         let new_fill = Fill {
-            price: bid.price.clone(),
-            quantity: fill_qty.clone(),
+            price: bid.price,
+            quantity: fill_qty,
             trade_id: generate_trade_id(),
-            user_id: String::from(user_id.clone()),
+            user_id: user_id.to_string(),
             other_user_id: bid.user_id.clone(),
-            order_id: String::from(order_id.clone()),
+            order_id: order_id.to_string(),
             other_order_id: bid.order_id.clone(),
-            other_order_filled: bid.filled.clone(),
+            other_order_filled: bid.filled,
             other_order_status: bid.status.clone(),
             bucket_time,
         };
@@ -72,7 +68,7 @@ pub fn execute_sell_order(
         filled += fill_qty;
 
         if bid.filled >= bid.quantity {
-            to_remove.push(i as u64);
+            to_remove.push(i);
         }
 
         if filled >= *quantity {
@@ -80,27 +76,27 @@ pub fn execute_sell_order(
         }
     }
 
-    for j in 0..to_remove.len() {
-        bids.remove(to_remove[j] as usize);
+    for &j in to_remove.iter().rev() {
+        bids.remove(j);
     }
 
-    let status = order_status(&filled, quantity);
+    let status = order_status(filled, *quantity);
 
     let unsold_market_order_quantity = if order_type == &OrderType::Market {
-        *quantity - filled
+        Some(*quantity - filled)
     } else {
-        0
+        None
     };
 
     if *order_type == OrderType::Limit && filled < *quantity {
         let resting_order = Order {
             price: *price,
             quantity: *quantity,
-            filled: filled,
+            filled,
             status,
-            order_id: String::from(order_id.clone()),
+            order_id: order_id.to_string(),
             side: OrderSide::Sell,
-            user_id: String::from(user_id.clone()),
+            user_id: user_id.to_string(),
         };
 
         let insert_at = asks
@@ -113,7 +109,7 @@ pub fn execute_sell_order(
         } else {
             asks.insert(insert_at, resting_order);
         }
-        depth.add("ask", *price, quantity - filled);
+        depth.add(&OrderSide::Sell, *price, quantity - filled);
     }
 
     MatchResult {
@@ -121,7 +117,7 @@ pub fn execute_sell_order(
         fills,
         status,
         filled,
-        unsold_market_order_quantity: Some(unsold_market_order_quantity),
+        unsold_market_order_quantity,
         unused_market_order_amount: None,
     }
 }

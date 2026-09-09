@@ -1,46 +1,45 @@
 use std::{ cmp::Reverse, collections::{ BTreeMap, btree_map::Entry } };
 
-use serde_json::map::Entry;
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+use crate::types::order::OrderSide;
+#[derive(Debug, PartialEq, Eq)]
 pub struct DepthMap {
     pub asks: BTreeMap<u64, u64>,
     pub bids: BTreeMap<Reverse<u64>, u64>,
 }
 
 impl DepthMap {
-    pub fn init(&self) -> Self {
+    pub fn new() -> Self {
         Self { asks: BTreeMap::new(), bids: BTreeMap::new() }
     }
 
-    pub fn add(&mut self, side: &str, price: u64, quantity: u64) {
+    pub fn add(&mut self, side: &OrderSide, price: u64, quantity: u64) {
         if quantity == 0 {
             return;
         }
 
         match side {
-            "ask" => {
+            OrderSide::Sell => {
                 *self.asks.entry(price).or_insert(0) += quantity;
             }
-            "bid" => {
+            OrderSide::Buy => {
                 *self.bids.entry(Reverse(price)).or_insert(0) += quantity;
             }
-            _ => eprintln!("Warning: unrecognized order side '{side}'"),
         }
     }
 
-    pub fn remove(&mut self, side: &str, price: u64, quantity: u64) {
+    pub fn remove(&mut self, side: &OrderSide, price: u64, quantity: u64) {
         if quantity == 0 {
             return;
         }
         match side {
-            "ask" =>
+            OrderSide::Sell =>
                 match self.asks.entry(price) {
                     Entry::Occupied(mut entry) => {
                         let current_quantity = *entry.get();
                         if current_quantity > quantity {
                             *entry.get_mut() -= quantity;
                         } else if current_quantity < quantity {
+                            self.asks.remove(&price);
                             eprintln!(
                                 "Not enough depth. This removal creates negative depth in ask."
                             )
@@ -55,13 +54,14 @@ impl DepthMap {
                     }
                 }
 
-            "bid" =>
+            OrderSide::Buy =>
                 match self.bids.entry(Reverse(price)) {
                     Entry::Occupied(mut entry) => {
                         let current_quantity = *entry.get();
                         if current_quantity > quantity {
                             *entry.get_mut() -= quantity;
                         } else if current_quantity < quantity {
+                            self.asks.remove(&price);
                             eprintln!(
                                 "Not enough depth. This removal creates negative depth in bid."
                             )
@@ -75,7 +75,16 @@ impl DepthMap {
                         );
                     }
                 }
-            _ => eprintln!("Warning: unrecognized order side '{side}'"),
         }
     }
+
+    pub fn get_asks(&self) -> &BTreeMap<u64, u64> {
+        &self.asks
+    }
+
+    pub fn get_bids(&self) -> &BTreeMap<Reverse<u64>, u64> {
+        &self.bids
+    }
+
+    pub fn to_snapshot(&self) {}
 }

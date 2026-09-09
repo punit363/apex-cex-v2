@@ -97,4 +97,6 @@ pub struct IncommingOrder {
     pub side: OrderSide,
     #[serde(rename = "type")]
     pub order_type: OrderType,
+    pub filled: Option<u64>,
+    pub status: Option<OrderStatus>,
 }
