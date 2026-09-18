@@ -109,7 +109,7 @@ pub fn execute_sell_order(
         } else {
             asks.insert(insert_at, resting_order);
         }
-        depth.add(&OrderSide::Sell, *price, quantity - filled);
+        depth.add(OrderSide::Sell, *price, quantity - filled);
     }
 
     MatchResult {
@@ -150,6 +150,7 @@ pub fn execute_buy_order(
                 continue;
             }
 
+            ask.filled += fill_qty;
             ask.status = order_status(ask.filled, ask.quantity);
             depth.remove(OrderSide::Sell, ask.price, fill_qty);
 
@@ -162,7 +163,7 @@ pub fn execute_buy_order(
                 order_id: order_id.to_string(),
                 other_order_id: ask.order_id.clone(),
                 other_order_filled: ask.filled,
-                other_order_status: ask.status,
+                other_order_status: ask.status.clone(),
                 bucket_time,
             };
 
@@ -176,9 +177,6 @@ pub fn execute_buy_order(
                 break;
             }
         } else {
-            /*TODO:  what happens in this case 
-            (price * SCALE) / ask.price
-            10/3? is satoshi scale usefull? where does .6666666 stop? */
             let affordable_base = (price * scale) / ask.price;
             let available_base = ask.quantity - ask.filled;
 
@@ -215,8 +213,8 @@ pub fn execute_buy_order(
         }
     }
 
-    for i in 0..to_remove.len() {
-        asks.remove(i);
+    for &j in to_remove.iter().rev() {
+        asks.remove(j); 
     }
 
     if *order_type == OrderType::Limit && filled < *quantity {
@@ -238,7 +236,7 @@ pub fn execute_buy_order(
         } else {
             bids.insert(insert_at, resting_order);
         }
-        depth.remove(OrderSide::Buy, order.price, quantity - filled);
+        depth.add(OrderSide::Buy, order.price, quantity - filled);
     }
 
     let unused_market_order_amount = if *order_type == OrderType::Market {
