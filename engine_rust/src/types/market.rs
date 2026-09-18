@@ -108,22 +108,6 @@ pub struct SaveTicker {
     pub trade_id: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct DepthMap {
-    pub bids: BTreeMap<u64, u64>,
-    pub asks: BTreeMap<u64, u64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct Orderbook {
-    pub quote_asset: String,
-    pub base_asset: String,
-    pub bids: Vec<Order>,
-    pub asks: Vec<Order>,
-    pub last_trade_id: String,
-    pub current_price: u64,
-}
-
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct PublishBookWithQuantityData {
     pub bids: Vec<Order>,

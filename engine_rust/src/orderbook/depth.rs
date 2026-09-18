@@ -12,7 +12,7 @@ impl DepthMap {
         Self { asks: BTreeMap::new(), bids: BTreeMap::new() }
     }
 
-    pub fn add(&mut self, side: &OrderSide, price: u64, quantity: u64) {
+    pub fn add(&mut self, side: OrderSide, price: u64, quantity: u64) {
         if quantity == 0 {
             return;
         }
@@ -27,7 +27,7 @@ impl DepthMap {
         }
     }
 
-    pub fn remove(&mut self, side: &OrderSide, price: u64, quantity: u64) {
+    pub fn remove(&mut self, side: OrderSide, price: u64, quantity: u64) {
         if quantity == 0 {
             return;
         }

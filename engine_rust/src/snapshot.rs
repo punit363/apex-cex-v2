@@ -1,6 +1,6 @@
 use std::{ collections::HashMap, fs::File, io::{ BufReader, BufWriter } };
 use serde::{ Deserialize, Serialize };
-use crate::types::{ market::Orderbook, order::{ self, Order } };
+use crate::{orderbook::Orderbook, types::order::{ self, Order }};
 use thiserror::Error;
 use std::time::Duration;
 use tokio::time;
