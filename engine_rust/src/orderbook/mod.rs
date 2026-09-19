@@ -40,4 +40,20 @@ impl Orderbook {
             depth: DepthMap::new(),
         }
     }
+
+    fn rebuild_depth_cache(&mut self) {
+        for bid in &self.bids {
+            let remaining_qty = bid.quantity - bid.filled;
+            self.depth.add(crate::types::order::OrderSide::Buy, bid.price, remaining_qty);
+        }
+
+        for ask in &self.asks {
+            let remaining_qty = ask.quantity - ask.filled;
+            self.depth.add(crate::types::order::OrderSide::Buy, ask.price, remaining_qty);
+        }
+    }
+
+    fn market_key(&self) -> String {
+        format!("{}_{}", self.base_asset, self.quote_asset)
+    }
 }
