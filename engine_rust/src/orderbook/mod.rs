@@ -1,4 +1,10 @@
-use crate::{ orderbook::depth::DepthMap, types::{ order::Order } };
+use crate::{
+    orderbook::{ depth::DepthMap, matching::{ execute_buy_order, execute_sell_order } },
+    types::{
+        market::{ EngineResponse, EngineResponseStatus },
+        order::{ IncommingOrder, Order, OrderSide, OrderType },
+    },
+};
 
 pub mod depth;
 pub mod matching;
@@ -55,5 +61,43 @@ impl Orderbook {
 
     fn market_key(&self) -> String {
         format!("{}_{}", self.base_asset, self.quote_asset)
+    }
+
+    pub fn place_order(
+        &mut self,
+        user_id: &str,
+        order: IncommingOrder,
+        scale: u64
+    ) -> EngineResponseStatus {
+        if order.order_type == OrderType::Limit && order.price == 0 {
+            EngineResponseStatus::Failed;
+        }
+
+        let result = match order.side {
+            OrderSide::Buy =>
+                execute_buy_order(
+                    user_id,
+                    &order,
+                    &mut self.asks,
+                    &mut self.bids,
+                    &mut self.depth,
+                    &scale
+                ),
+            OrderSide::Sell =>
+                execute_sell_order(
+                    user_id,
+                    &order,
+                    &mut self.asks,
+                    &mut self.bids,
+                    &mut self.depth
+                ),
+        };
+
+        if result.fills.len() > 0 {
+            self.current_price = result.fills.last().unwrap().price;
+            self.last_trade_id = result.fills.last().unwrap().trade_id.clone();
+        }
+
+        EngineResponseStatus::Success
     }
 }
