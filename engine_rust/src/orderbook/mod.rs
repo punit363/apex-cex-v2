@@ -100,4 +100,12 @@ impl Orderbook {
 
         EngineResponseStatus::Success
     }
+
+    pub fn get_book_with_quantities(&self) -> DepthMap {
+        self.depth.clone()
+    }
+
+    pub fn fetch_open_orders(&self) -> (Vec<Order>, Vec<Order>) {
+        (self.bids.clone(), self.asks.clone())
+    }
 }
