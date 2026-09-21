@@ -101,6 +101,59 @@ impl Orderbook {
         EngineResponseStatus::Success
     }
 
+    pub fn cancel_order(
+        &mut self,
+        user_id: &str,
+        order_id: &str,
+        side: OrderSide
+    ) -> EngineResponse<Order> {
+        let order = match side {
+            OrderSide::Buy =>
+                self.bids.iter().find(|bid| bid.order_id == order_id && bid.user_id == user_id),
+            OrderSide::Sell =>
+                self.asks.iter().find(|ask| ask.order_id == order_id && ask.user_id == user_id),
+        };
+
+        let idx = match side {
+            OrderSide::Buy =>
+            self.bids.iter().position(|b| b.order_id == order_id && b.user_id == user_id),
+            OrderSide::Sell =>
+            self.asks.iter().position(|b| b.order_id == order_id && b.user_id == user_id),
+        };
+
+        if order.is_none() {
+            return EngineResponse {
+                status: EngineResponseStatus::Failed,
+                odb_status_code: 0,
+                message: format!("Failed to find order"),
+                data: None,
+            };
+        } else {
+            if order.unwrap().filled >= order.unwrap().quantity {
+                return EngineResponse {
+                    status: EngineResponseStatus::Failed,
+                    odb_status_code: 0,
+                    message: format!("Failed the order is already filled"),
+                    data: None,
+                };
+            } else {
+                let remaining = order.unwrap().quantity - order.unwrap().filled;
+                match side {
+                    OrderSide::Buy => self.depth.remove(OrderSide::Buy, order.unwrap().price, remaining),
+                    OrderSide::Sell => self.depth.remove(OrderSide::Sell, order.unwrap().price, remaining),
+                };
+
+                match side {
+                    OrderSide::Buy =>
+                        self.bids.remove(idx.unwrap()),
+                    OrderSide::Sell =>
+                        self.asks.remove(idx.unwrap()),
+                };
+            };
+        }
+        EngineResponse { status:EngineResponseStatus::Success, odb_status_code: 1, message: format!("Order Successfully cancelled"), data: order.cloned() }
+    }
+
     pub fn get_book_with_quantities(&self) -> DepthMap {
         self.depth.clone()
     }
