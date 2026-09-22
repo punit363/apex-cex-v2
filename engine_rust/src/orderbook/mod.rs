@@ -55,12 +55,12 @@ impl Orderbook {
     fn rebuild_depth_cache(&mut self) {
         for bid in &self.bids {
             let remaining_qty = bid.quantity - bid.filled;
-            self.depth.add(crate::types::order::OrderSide::Buy, bid.price, remaining_qty);
+            self.depth.add(OrderSide::Buy, bid.price, remaining_qty);
         }
 
         for ask in &self.asks {
             let remaining_qty = ask.quantity - ask.filled;
-            self.depth.add(crate::types::order::OrderSide::Buy, ask.price, remaining_qty);
+            self.depth.add(OrderSide::Sell, ask.price, remaining_qty);
         }
     }
 
@@ -103,7 +103,7 @@ impl Orderbook {
                 ),
         };
 
-        if result.fills.len() > 0 {
+        if !result.fills.is_empty() {
             self.current_price = result.fills.last().unwrap().price;
             self.last_trade_id = result.fills.last().unwrap().trade_id.clone();
         }
@@ -122,30 +122,28 @@ impl Orderbook {
         order_id: &str,
         side: OrderSide
     ) -> EngineResponse<Order> {
-        let order = match side {
-            OrderSide::Buy =>
-                self.bids
-                    .iter()
-                    .find(|bid| bid.order_id == order_id && bid.user_id == user_id)
-                    .unwrap(),
-            OrderSide::Sell =>
-                self.asks
-                    .iter()
-                    .find(|ask| ask.order_id == order_id && ask.user_id == user_id)
-                    .unwrap(),
-        };
-
         let idx = match side {
             OrderSide::Buy =>
-                self.bids
-                    .iter()
-                    .position(|b| b.order_id == order_id && b.user_id == user_id)
-                    .unwrap(),
+                self.bids.iter().position(|b| b.order_id == order_id && b.user_id == user_id),
             OrderSide::Sell =>
-                self.asks
-                    .iter()
-                    .position(|b| b.order_id == order_id && b.user_id == user_id)
-                    .unwrap(),
+                self.asks.iter().position(|b| b.order_id == order_id && b.user_id == user_id),
+        };
+
+        let idx = match idx {
+            None => {
+                return EngineResponse {
+                    status: EngineResponseStatus::Failed,
+                    odb_status_code: 0,
+                    message: "Order not found".to_string(),
+                    data: None,
+                };
+            }
+            Some(i) => i,
+        };
+
+        let order = match side {
+            OrderSide::Buy => &self.bids[idx],
+            OrderSide::Sell => &self.asks[idx],
         };
 
         let cancelled_order;
@@ -169,7 +167,7 @@ impl Orderbook {
                 OrderSide::Sell => self.asks.remove(idx),
             };
         }
-        // }
+
         EngineResponse {
             status: EngineResponseStatus::Success,
             odb_status_code: 1,
@@ -178,8 +176,8 @@ impl Orderbook {
         }
     }
 
-    pub fn get_book_with_quantities(&self) -> DepthMap {
-        self.depth.clone()
+    pub fn get_book_with_quantities(&self) -> () {
+        self.depth.to_snapshot()
     }
 
     pub fn fetch_open_orders(&self) -> (Vec<Order>, Vec<Order>) {
