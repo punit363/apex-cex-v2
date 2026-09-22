@@ -3,6 +3,7 @@ use crate::{
     types::{
         market::{ EngineResponse, EngineResponseStatus },
         order::{ IncommingOrder, Order, OrderSide, OrderType },
+        trade::MatchResult,
     },
 };
 
@@ -36,7 +37,7 @@ impl Orderbook {
             }
         }
 
-        Self {
+        let mut orderbook = Self {
             quote_asset,
             base_asset,
             bids,
@@ -44,7 +45,11 @@ impl Orderbook {
             last_trade_id,
             current_price,
             depth: DepthMap::new(),
-        }
+        };
+
+        orderbook.rebuild_depth_cache();
+
+        orderbook
     }
 
     fn rebuild_depth_cache(&mut self) {
@@ -68,9 +73,14 @@ impl Orderbook {
         user_id: &str,
         order: IncommingOrder,
         scale: u64
-    ) -> EngineResponseStatus {
+    ) -> EngineResponse<MatchResult> {
         if order.order_type == OrderType::Limit && order.price == 0 {
-            EngineResponseStatus::Failed;
+            return EngineResponse {
+                status: EngineResponseStatus::Failed,
+                odb_status_code: 1,
+                message: format!("Limit order requires price greater than zero"),
+                data: None,
+            };
         }
 
         let result = match order.side {
@@ -87,8 +97,8 @@ impl Orderbook {
                 execute_sell_order(
                     user_id,
                     &order,
-                    &mut self.asks,
                     &mut self.bids,
+                    &mut self.asks,
                     &mut self.depth
                 ),
         };
@@ -98,7 +108,12 @@ impl Orderbook {
             self.last_trade_id = result.fills.last().unwrap().trade_id.clone();
         }
 
-        EngineResponseStatus::Success
+        EngineResponse {
+            status: EngineResponseStatus::Success,
+            odb_status_code: 1,
+            message: format!("Order placed Successfully"),
+            data: Some(result),
+        }
     }
 
     pub fn cancel_order(
@@ -109,49 +124,58 @@ impl Orderbook {
     ) -> EngineResponse<Order> {
         let order = match side {
             OrderSide::Buy =>
-                self.bids.iter().find(|bid| bid.order_id == order_id && bid.user_id == user_id),
+                self.bids
+                    .iter()
+                    .find(|bid| bid.order_id == order_id && bid.user_id == user_id)
+                    .unwrap(),
             OrderSide::Sell =>
-                self.asks.iter().find(|ask| ask.order_id == order_id && ask.user_id == user_id),
+                self.asks
+                    .iter()
+                    .find(|ask| ask.order_id == order_id && ask.user_id == user_id)
+                    .unwrap(),
         };
 
         let idx = match side {
             OrderSide::Buy =>
-            self.bids.iter().position(|b| b.order_id == order_id && b.user_id == user_id),
+                self.bids
+                    .iter()
+                    .position(|b| b.order_id == order_id && b.user_id == user_id)
+                    .unwrap(),
             OrderSide::Sell =>
-            self.asks.iter().position(|b| b.order_id == order_id && b.user_id == user_id),
+                self.asks
+                    .iter()
+                    .position(|b| b.order_id == order_id && b.user_id == user_id)
+                    .unwrap(),
         };
 
-        if order.is_none() {
+        let cancelled_order;
+
+        if order.filled >= order.quantity {
             return EngineResponse {
                 status: EngineResponseStatus::Failed,
                 odb_status_code: 0,
-                message: format!("Failed to find order"),
+                message: format!("Failed the order is already filled"),
                 data: None,
             };
         } else {
-            if order.unwrap().filled >= order.unwrap().quantity {
-                return EngineResponse {
-                    status: EngineResponseStatus::Failed,
-                    odb_status_code: 0,
-                    message: format!("Failed the order is already filled"),
-                    data: None,
-                };
-            } else {
-                let remaining = order.unwrap().quantity - order.unwrap().filled;
-                match side {
-                    OrderSide::Buy => self.depth.remove(OrderSide::Buy, order.unwrap().price, remaining),
-                    OrderSide::Sell => self.depth.remove(OrderSide::Sell, order.unwrap().price, remaining),
-                };
+            let remaining = order.quantity - order.filled;
+            match side {
+                OrderSide::Buy => self.depth.remove(OrderSide::Buy, order.price, remaining),
+                OrderSide::Sell => self.depth.remove(OrderSide::Sell, order.price, remaining),
+            }
 
-                match side {
-                    OrderSide::Buy =>
-                        self.bids.remove(idx.unwrap()),
-                    OrderSide::Sell =>
-                        self.asks.remove(idx.unwrap()),
-                };
+            cancelled_order = match side {
+                OrderSide::Buy => self.bids.remove(idx),
+                OrderSide::Sell => self.asks.remove(idx),
             };
         }
-        EngineResponse { status:EngineResponseStatus::Success, odb_status_code: 1, message: format!("Order Successfully cancelled"), data: order.cloned() }
+        // }
+        EngineResponse {
+            status: EngineResponseStatus::Success,
+            odb_status_code: 1,
+            message: format!("Order Successfully cancelled"),
+            data: Some(cancelled_order),
+        }
     }
 
     pub fn get_book_with_quantities(&self) -> DepthMap {
