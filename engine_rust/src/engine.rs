@@ -270,4 +270,98 @@ impl Engine {
         Ok(())
     }
 
+
+    async fn handle_cancel_order(&mut self, order: OrderRequest) -> Result<(), RedisHandlerError> {
+        let user_id = order.user_id.clone();
+        let base_asset = order.order_data.base_asset.clone();
+        let quote_asset = order.order_data.quote_asset.clone();
+        let market = format!("{}_{}", base_asset, quote_asset);
+        let order_id = order.order_data.order_id.clone();
+        let side = order.order_data.side.clone();
+
+        let orderbook = match self.orderbooks.get_mut(&market) {
+            Some(ob) => ob,
+            None => {
+                error!("No orderbook found for market {} during cancel", market);
+                let _ = self.redis.publish_user_event(
+                    &user_id,
+                    &crate::types::trade::UserEvent::CancelRejected {
+                        order_id: order_id.clone(),
+                        reason: format!("Market {} is not supported", market),
+                    }
+                ).await;
+                return Ok(());
+            }
+        };
+
+        let response = orderbook.cancel_order(&user_id, &order_id, side.clone());
+
+        match response.status {
+            EngineResponseStatus::Failed => {
+                let _ = self.redis.publish_user_event(
+                    &user_id,
+                    &crate::types::trade::UserEvent::CancelRejected {
+                        order_id: order_id.clone(),
+                        reason: response.message.clone(),
+                    }
+                ).await;
+            }
+            EngineResponseStatus::Success => {
+                let cancelled = response.data.unwrap();
+
+                if let Err(e) = self.redis.send_to_db(DbRequest::CancelOrder {
+                    order_id: order_id.clone(),
+                    status: "cancelled".to_string(),
+                }).await {
+                    error!(
+                        "[CRITICAL] CANCEL_ORDER DB sync failed for order {}: {}",
+                        order_id, e
+                    );
+                }
+
+                let cancellation = CancellationEvent {
+                    action: "ORDER_CANCELLATION".to_string(),
+                    market: market.clone(),
+                    order_id: order_id.clone(),
+                    user_id: user_id.clone(),
+                    side: side.clone(),
+                    quantity: cancelled.quantity,
+                    filled: cancelled.filled,
+                    price: cancelled.price,
+                    base_asset: base_asset.clone(),
+                    quote_asset: quote_asset.clone(),
+                };
+
+                if let Err(e) = self.redis
+                    .add_to_risk_router_stream(market.clone(), cancellation)
+                    .await
+                {
+                    error!(
+                        "[CRITICAL] Risk router stream failed for cancel order {}: {}",
+                        order_id, e
+                    );
+                }
+
+                let (bids_snapshot, asks_snapshot) = self.orderbooks
+                    .get(&market)
+                    .map(|ob| ob.get_book_with_quantities())
+                    .unwrap_or_default();
+
+                let book_payload = PublishBookWithQuantity {
+                    market: market.clone(),
+                    bids: bids_snapshot,
+                    asks: asks_snapshot,
+                };
+
+                let _ = self.redis.publish_book_with_quantity(
+                    market.clone(),
+                    book_payload.clone()
+                ).await;
+
+                let _ = self.redis.set_book_with_quantity(&market, &book_payload).await;
+            }
+        }
+
+        Ok(())
+    }
 }
