@@ -365,3 +365,53 @@ impl Engine {
         Ok(())
     }
 }
+
+
+pub fn build_orderbooks(
+    snapshot: Option<Snapshot>,
+    symbols: &[String],
+) -> HashMap<String, Orderbook> {
+    let mut map = HashMap::new();
+
+    match snapshot {
+        Some(snap) => {
+            for ob in snap.orderbooks {
+                let key = format!("{}_{}", ob.base_asset, ob.quote_asset);
+                map.insert(
+                    key,
+                    Orderbook::new(
+                        ob.base_asset,
+                        ob.quote_asset,
+                        ob.bids,
+                        ob.asks,
+                        ob.last_trade_id,
+                        ob.current_price,
+                    ),
+                );
+            }
+        }
+        None => {
+            for symbol in symbols {
+                let parts: Vec<&str> = symbol.splitn(2, '_').collect();
+                if parts.len() != 2 {
+                    error!("Invalid symbol format in config: {}", symbol);
+                    continue;
+                }
+                map.insert(
+                    symbol.clone(),
+                    Orderbook::new(
+                        parts[0].to_string(),
+                        parts[1].to_string(),
+                        vec![],
+                        vec![],
+                        String::new(),
+                        0,
+                    ),
+                );
+            }
+        }
+    }
+
+    map
+
+}
