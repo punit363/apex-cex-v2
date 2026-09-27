@@ -1,7 +1,7 @@
 use std::{ cmp::Reverse, collections::{ BTreeMap, btree_map::Entry } };
 
 use crate::types::order::OrderSide;
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DepthMap {
     pub asks: BTreeMap<u64, u64>,
     pub bids: BTreeMap<Reverse<u64>, u64>,

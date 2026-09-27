@@ -96,7 +96,7 @@ pub struct PublishTickerData {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PublishTicker {
-    pub market: &str,
+    pub market: &'static str,
     pub ticker: PublishTickerData,
 }
 

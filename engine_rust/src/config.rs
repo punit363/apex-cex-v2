@@ -1,25 +1,24 @@
 use serde::Deserialize;
-use std::env::{self, VarError};
+use std::env::{ self, VarError };
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    #[error("Environment variable '{key}' is missing or invalid: {source}")]
-    MissingOrInvalidVar {
+    #[error("Environment variable '{key}' is missing or invalid: {source}")] MissingOrInvalidVar {
         key: &'static str,
         #[source]
         source: VarError,
     },
 
-    #[error("Failed to parse environment variable '{key}' (value: '{value}'): {message}")]
-    ParseError {
+    #[error(
+        "Failed to parse environment variable '{key}' (value: '{value}'): {message}"
+    )] ParseError {
         key: &'static str,
         value: String,
         message: String,
     },
 
-    #[error("Failed to parse JSON for environment variable '{key}': {source}")]
-    JsonParseError {
+    #[error("Failed to parse JSON for environment variable '{key}': {source}")] JsonParseError {
         key: &'static str,
         #[source]
         source: serde_json::Error,
@@ -64,6 +63,10 @@ pub struct Config {
     // Sockets
     pub ws_port: u16,
 
+    // Enigne
+    pub consumer_group: String,
+    pub consumer_name: String,
+
     // Market Maker
     pub mm_quote_asset: String,
     pub mm_base_asset: String,
@@ -106,6 +109,10 @@ impl Config {
             // Sockets
             ws_port: parse_env("WS_PORT")?,
 
+            // Engine
+            consumer_group: parse_env("ENG_CONSUMER_GROUP")?,
+            consumer_name: parse_env("ENG_CONSUMER_NAME")?,
+
             // Market Maker
             mm_quote_asset: read_env("MM_QUOTE_ASSET")?,
             mm_base_asset: read_env("MM_BASE_ASSET")?,
@@ -123,9 +130,7 @@ fn read_env(key: &'static str) -> Result<String, ConfigError> {
 }
 
 fn parse_env<T>(key: &'static str) -> Result<T, ConfigError>
-where
-    T: std::str::FromStr,
-    T::Err: std::fmt::Display,
+    where T: std::str::FromStr, T::Err: std::fmt::Display
 {
     let raw = read_env(key)?;
     // Strip trailing inline comments if present in raw .env entries (e.g., "900000 # 15 * 60 * 1000")
@@ -133,19 +138,14 @@ where
     //Splits the string into pieces around the # delimiter
     //Takes the first element produced by the split
 
-    cleaned
-        .parse::<T>()
-        .map_err(|err| ConfigError::ParseError {
-            key,
-            value: raw,
-            message: err.to_string(),
-        })
+    cleaned.parse::<T>().map_err(|err| ConfigError::ParseError {
+        key,
+        value: raw,
+        message: err.to_string(),
+    })
 }
 
-fn parse_json_env<T>(key: &'static str) -> Result<T, ConfigError>
-where
-    T: for<'de> Deserialize<'de>,
-{
+fn parse_json_env<T>(key: &'static str) -> Result<T, ConfigError> where T: for<'de> Deserialize<'de> {
     let raw = read_env(key)?;
     serde_json::from_str::<T>(&raw).map_err(|source| ConfigError::JsonParseError {
         key,
