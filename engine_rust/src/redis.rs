@@ -37,7 +37,7 @@ impl RedisHandler {
         Ok(Self { client, publisher, consumer_group, consumer_name })
     }
 
-    pub async fn sent_to_db(&mut self, payload: DbRequest) -> Result<(), RedisHandlerError> {
+    pub async fn send_to_db(&mut self, payload: DbRequest) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(&payload)?;
         let _: () = self.client.lpush("DB_UPDATE", serialized).await?;
         Ok(())

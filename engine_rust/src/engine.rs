@@ -1,15 +1,21 @@
 use std::collections::HashMap;
-use tracing::{error, warn};
+use tracing::{ error, warn };
 use crate::{
     config::Config,
     orderbook::Orderbook,
     redis::{ RedisHandler, RedisHandlerError },
-    snapshot::{ build_orderbooks, Snapshot },
+    snapshot::{ Snapshot, build_orderbooks },
     types::{
-        order::{ OrderRequest, OrderSide, IncommingOrder, OrderType },
-        trade::{ TradeData, CancellationEvent },
-        db::DbRequest,
-        market::{ EngineResponseStatus, PublishBookWithQuantity, PublishOrder, PublishTrade },
+        db::{ DbRequest, AddOrderPayload },
+        market::{
+            EngineResponseStatus,
+            PublishBookWithQuantity,
+            PublishBookWithQuantityData,
+            PublishOrder,
+            PublishTrade,
+        },
+        order::{ IncommingOrder, OrderRequest, OrderSide, OrderType },
+        trade::{ CancellationEvent, TradeData },
     },
 };
 
@@ -25,7 +31,7 @@ impl Engine {
         orderbooks: HashMap<String, Orderbook>,
         redis: RedisHandler,
         scale: u64,
-        stream_keys: Vec<String>,
+        stream_keys: Vec<String>
     ) -> Self {
         Self { orderbooks, redis, scale, stream_keys }
     }
@@ -36,9 +42,7 @@ impl Engine {
         }
 
         loop {
-            let messages = self.redis
-                .read_next_batch(&self.stream_keys.clone())
-                .await?;
+            let messages = self.redis.read_next_batch(&self.stream_keys.clone()).await?;
 
             for (order, message_id, stream_key) in messages {
                 match self.process_order(order).await {
@@ -46,21 +50,23 @@ impl Engine {
                         if let Err(e) = self.redis.xack(&stream_key, &message_id).await {
                             error!(
                                 "Failed to XACK message {} on stream {}: {}",
-                                message_id, stream_key, e
+                                message_id,
+                                stream_key,
+                                e
                             );
                         }
                     }
                     Err(e) => {
                         error!(
                             "Failed to process order message {}: {}. Leaving pending for reclaim.",
-                            message_id, e
+                            message_id,
+                            e
                         );
                     }
                 }
             }
         }
     }
-
 
     async fn process_order(&mut self, order: OrderRequest) -> Result<(), RedisHandlerError> {
         match order.action.as_str() {
@@ -85,10 +91,10 @@ impl Engine {
                 error!("No orderbook found for market {}", market);
                 let _ = self.redis.publish_user_event(
                     &user_id,
-                    &crate::types::trade::UserEvent::OrderRejected {
+                    &(crate::types::trade::UserEvent::OrderRejected {
                         order_id: order.order_data.order_id.clone(),
                         reason: format!("Market {} is not supported", market),
-                    }
+                    })
                 ).await;
                 return Ok(());
             }
@@ -110,10 +116,10 @@ impl Engine {
             EngineResponseStatus::Failed => {
                 let _ = self.redis.publish_user_event(
                     &user_id,
-                    &crate::types::trade::UserEvent::OrderRejected {
+                    &(crate::types::trade::UserEvent::OrderRejected {
                         order_id: order.order_data.order_id.clone(),
                         reason: response.message.clone(),
-                    }
+                    })
                 ).await;
                 return Ok(());
             }
@@ -130,10 +136,15 @@ impl Engine {
                     .map(|ob| ob.get_book_with_quantities())
                     .unwrap_or_default();
 
-                let book_payload = PublishBookWithQuantity {
-                    market: market.clone(),
+                let orderbook_data = PublishBookWithQuantityData {
                     bids: bids_snapshot.clone(),
                     asks: asks_snapshot.clone(),
+                    current_price,
+                };
+
+                let book_payload = PublishBookWithQuantity {
+                    market: market.clone(),
+                    orderbook_data,
                 };
 
                 let _ = self.redis.publish_book_with_quantity(
@@ -158,25 +169,28 @@ impl Engine {
                 };
 
                 let _ = self.redis.publish_order(market.clone(), order_payload).await;
-\
-                if let Err(e) = self.redis.send_to_db(DbRequest::AddOrder {
-                    order_id: order_id.clone(),
-                    user_id: user_id.clone(),
-                    side: side.clone(),
-                    order_type: order_type.clone(),
-                    price,
-                    quantity,
-                    filled_quantity: result.filled,
-                    status: result.status.clone(),
-                    base_asset: base_asset.clone(),
-                    quote_asset: quote_asset.clone(),
-                }).await {
+
+                if
+                    let Err(e) = self.redis.send_to_db(
+                        DbRequest::AddOrder(AddOrderPayload {
+                            order_id: order_id.clone(),
+                            user_id: user_id.clone(),
+                            side: side.clone(),
+                            order_type: order_type.clone(),
+                            price,
+                            quantity,
+                            filled_quantity: result.filled,
+                            status: result.status.clone(),
+                            base_asset: base_asset.clone(),
+                            quote_asset: quote_asset.clone(),
+                        })
+                    ).await
+                {
                     error!("[CRITICAL] ADD_ORDER DB sync failed for order {}: {}", order_id, e);
                 }
 
-\                if !result.fills.is_empty() {
-
-\                    let trade_data = TradeData {
+                if !result.fills.is_empty() {
+                    let trade_data = TradeData {
                         action: "TRADE_EXECUTED".to_string(),
                         market: market.clone(),
                         placed_order: crate::types::trade::PlacedOrderData {
@@ -190,29 +204,29 @@ impl Engine {
                             quote_asset: quote_asset.clone(),
                             status: result.status.clone(),
                             filled: result.filled,
-                            unsold_market_order_quantity: result.unsold_market_order_quantity,
-                            unused_market_order_amount: result.unused_market_order_amount,
+                            unsold_market_order_quantity: result.unsold_market_order_quantity.unwrap_or_default(),
+                            unused_market_order_amount: result.unused_market_order_amount.unwrap_or_default(),
                         },
                         trades: result.fills.clone(),
                     };
 
-                    if let Err(e) = self.redis
-                        .add_to_risk_router_stream(market.clone(), trade_data)
-                        .await
+                    if
+                        let Err(e) = self.redis.add_to_risk_router_stream(
+                            market.clone(),
+                            trade_data
+                        ).await
                     {
                         error!(
                             "[CRITICAL] add_to_risk_router_stream failed for order {}: {}",
-                            order_id, e
+                            order_id,
+                            e
                         );
                     }
 
-              let _ = self.redis.publish_trade(
-                        market.clone(),
-                        PublishTrade {
-                            market: market.clone(),
-                            trade: result.fills.clone(),
-                        }
-                    ).await;
+                    let _ = self.redis.publish_trade(market.clone(), PublishTrade {
+                        market: market.clone(),
+                        trade: result.fills.clone(),
+                    }).await;
 
                     for fill in &result.fills {
                         let _ = self.redis.save_ticker_data(
@@ -226,41 +240,56 @@ impl Engine {
                         ).await;
                     }
 
-                    let trades: Vec<_> = result.fills.iter().map(|fill| {
-                        crate::types::db::TradeRecord {
-                            trade_id: fill.trade_id.clone(),
-                            user_id: user_id.clone(),
-                            other_user_id: fill.other_user_id.clone(),
-                            order_id: order_id.clone(),
-                            other_order_id: fill.other_order_id.clone(),
-                            price: fill.price,
-                            quantity: fill.quantity,
-                            base_asset: base_asset.clone(),
-                            quote_asset: quote_asset.clone(),
-                            side: side.clone(),
-                        }
-                    }).collect();
+                    let trades: Vec<_> = result.fills
+                        .iter()
+                        .map(|fill| {
+                            crate::types::db::TradeRecord {
+                                trade_id: fill.trade_id.clone(),
+                                user_id: user_id.clone(),
+                                other_user_id: fill.other_user_id.clone(),
+                                order_id: order_id.clone(),
+                                other_order_id: fill.other_order_id.clone(),
+                                price: fill.price,
+                                quantity: fill.quantity,
+                                base_asset: base_asset.clone(),
+                                quote_asset: quote_asset.clone(),
+                                side: side.clone(),
+                            }
+                        })
+                        .collect();
 
-                    if let Err(e) = self.redis.send_to_db(DbRequest::AddTrades {
-                        trades,
-                    }).await {
-                        error!("[CRITICAL] ADD_TRADES DB sync failed for order {}: {}", order_id, e);
+                    if
+                        let Err(e) = self.redis.send_to_db(DbRequest::AddTrades {
+                            trades,
+                        }).await
+                    {
+                        error!(
+                            "[CRITICAL] ADD_TRADES DB sync failed for order {}: {}",
+                            order_id,
+                            e
+                        );
                     }
 
-                    let update_orders: Vec<_> = result.fills.iter().map(|fill| {
-                        crate::types::db::UpdateOrder {
-                            order_id: fill.other_order_id.clone(),
-                            filled: fill.other_order_filled,
-                            status: fill.other_order_status.clone(),
-                        }
-                    }).collect();
+                    let update_orders: Vec<_> = result.fills
+                        .iter()
+                        .map(|fill| {
+                            crate::types::db::UpdateOrder {
+                                order_id: fill.other_order_id.clone(),
+                                filled: fill.other_order_filled,
+                                status: fill.other_order_status.clone(),
+                            }
+                        })
+                        .collect();
 
-                    if let Err(e) = self.redis.send_to_db(DbRequest::UpdateOrders {
-                        update_orders,
-                    }).await {
+                    if
+                        let Err(e) = self.redis.send_to_db(DbRequest::UpdateOrders {
+                            update_orders,
+                        }).await
+                    {
                         error!(
                             "[CRITICAL] UPDATE_ORDERS DB sync failed for order {}: {}",
-                            order_id, e
+                            order_id,
+                            e
                         );
                     }
                 }
@@ -269,7 +298,6 @@ impl Engine {
 
         Ok(())
     }
-
 
     async fn handle_cancel_order(&mut self, order: OrderRequest) -> Result<(), RedisHandlerError> {
         let user_id = order.user_id.clone();
@@ -285,10 +313,10 @@ impl Engine {
                 error!("No orderbook found for market {} during cancel", market);
                 let _ = self.redis.publish_user_event(
                     &user_id,
-                    &crate::types::trade::UserEvent::CancelRejected {
+                    &(crate::types::trade::UserEvent::CancelRejected {
                         order_id: order_id.clone(),
                         reason: format!("Market {} is not supported", market),
-                    }
+                    })
                 ).await;
                 return Ok(());
             }
@@ -300,23 +328,22 @@ impl Engine {
             EngineResponseStatus::Failed => {
                 let _ = self.redis.publish_user_event(
                     &user_id,
-                    &crate::types::trade::UserEvent::CancelRejected {
+                    &(crate::types::trade::UserEvent::CancelRejected {
                         order_id: order_id.clone(),
                         reason: response.message.clone(),
-                    }
+                    })
                 ).await;
             }
             EngineResponseStatus::Success => {
                 let cancelled = response.data.unwrap();
 
-                if let Err(e) = self.redis.send_to_db(DbRequest::CancelOrder {
-                    order_id: order_id.clone(),
-                    status: "cancelled".to_string(),
-                }).await {
-                    error!(
-                        "[CRITICAL] CANCEL_ORDER DB sync failed for order {}: {}",
-                        order_id, e
-                    );
+                if
+                    let Err(e) = self.redis.send_to_db(DbRequest::CancelOrder {
+                        order_id: order_id.clone(),
+                        status: "cancelled".to_string(),
+                    }).await
+                {
+                    error!("[CRITICAL] CANCEL_ORDER DB sync failed for order {}: {}", order_id, e);
                 }
 
                 let cancellation = CancellationEvent {
@@ -332,13 +359,16 @@ impl Engine {
                     quote_asset: quote_asset.clone(),
                 };
 
-                if let Err(e) = self.redis
-                    .add_to_risk_router_stream(market.clone(), cancellation)
-                    .await
+                if
+                    let Err(e) = self.redis.add_to_risk_router_stream(
+                        market.clone(),
+                        cancellation
+                    ).await
                 {
                     error!(
                         "[CRITICAL] Risk router stream failed for cancel order {}: {}",
-                        order_id, e
+                        order_id,
+                        e
                     );
                 }
 
@@ -366,10 +396,9 @@ impl Engine {
     }
 }
 
-
 pub fn build_orderbooks(
     snapshot: Option<Snapshot>,
-    symbols: &[String],
+    symbols: &[String]
 ) -> HashMap<String, Orderbook> {
     let mut map = HashMap::new();
 
@@ -385,8 +414,8 @@ pub fn build_orderbooks(
                         ob.bids,
                         ob.asks,
                         ob.last_trade_id,
-                        ob.current_price,
-                    ),
+                        ob.current_price
+                    )
                 );
             }
         }
@@ -405,13 +434,12 @@ pub fn build_orderbooks(
                         vec![],
                         vec![],
                         String::new(),
-                        0,
-                    ),
+                        0
+                    )
                 );
             }
         }
     }
 
     map
-
 }

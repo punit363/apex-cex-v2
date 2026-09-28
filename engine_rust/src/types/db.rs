@@ -2,29 +2,29 @@ use crate::types::order::{ OrderSide, OrderStatus, OrderType };
 use serde::{ Serialize, Deserialize };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct AddOrderPayload {
-    order_id: String,
-    user_id: String,
-    side: OrderSide,
+pub struct AddOrderPayload {
+    pub order_id: String,
+    pub user_id: String,
+    pub side: OrderSide,
     #[serde(rename = "type")]
-    order_type: OrderType,
-    quantity: u64,
-    filled_quantity: u64,
-    price: u64,
-    status: OrderStatus,
-    base_asset: String,
-    quote_asset: String,
+    pub order_type: OrderType,
+    pub quantity: u64,
+    pub filled_quantity: u64,
+    pub price: u64,
+    pub status: OrderStatus,
+    pub base_asset: String,
+    pub quote_asset: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct UpdateOrderPayload {
+pub struct UpdateOrderPayload {
     order_id: String,
     filled: u64,
     status: OrderStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct CancelOrderPayload {
+pub struct CancelOrderPayload {
     order_id: String,
     status: OrderStatus,
 }
