@@ -117,5 +117,5 @@ pub struct PublishBookWithQuantityData {
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct PublishBookWithQuantity {
     pub market: String,
-    orderbook_data: PublishBookWithQuantityData,
+    pub orderbook_data: PublishBookWithQuantityData,
 }

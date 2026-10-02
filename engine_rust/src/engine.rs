@@ -6,7 +6,7 @@ use crate::{
     redis::{ RedisHandler, RedisHandlerError },
     snapshot::{ Snapshot, build_orderbooks },
     types::{
-        db::{ DbRequest, AddOrderPayload },
+        db::{ AddOrderPayload, AddTradePayload, CancelOrderPayload, DbRequest },
         market::{
             EngineResponseStatus,
             PublishBookWithQuantity,
@@ -259,9 +259,11 @@ impl Engine {
                         .collect();
 
                     if
-                        let Err(e) = self.redis.send_to_db(DbRequest::AddTrades {
-                            trades,
-                        }).await
+                        let Err(e) = self.redis.send_to_db(
+                            DbRequest::AddTrade(AddTradePayload {
+                                trades,
+                            })
+                        ).await
                     {
                         error!(
                             "[CRITICAL] ADD_TRADES DB sync failed for order {}: {}",
@@ -338,10 +340,12 @@ impl Engine {
                 let cancelled = response.data.unwrap();
 
                 if
-                    let Err(e) = self.redis.send_to_db(DbRequest::CancelOrder {
-                        order_id: order_id.clone(),
-                        status: "cancelled".to_string(),
-                    }).await
+                    let Err(e) = self.redis.send_to_db(
+                        DbRequest::CancelOrder(CancelOrderPayload {
+                            order_id: order_id.clone(),
+                            status: crate::types::order::OrderStatus::Cancelled,
+                        })
+                    ).await
                 {
                     error!("[CRITICAL] CANCEL_ORDER DB sync failed for order {}: {}", order_id, e);
                 }

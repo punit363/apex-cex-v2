@@ -25,8 +25,8 @@ pub struct UpdateOrderPayload {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CancelOrderPayload {
-    order_id: String,
-    status: OrderStatus,
+    pub order_id: String,
+    pub status: OrderStatus,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -44,8 +44,8 @@ struct Trades {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct AddTradePayload {
-    trades: Vec<Trades>,
+pub struct AddTradePayload {
+    pub trades: Vec<Trades>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -1,4 +1,4 @@
-use crate::types::order::OrderStatus;
+use crate::types::order::{OrderSide, OrderStatus, OrderType};
 use serde::{ Deserialize, Serialize };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -21,11 +21,11 @@ pub struct PlacedOrderData {
     pub order_id: String,
     pub price: u64,
     pub quantity: u64,
-    pub side: String,
-    pub order_type: String,
+    pub side: OrderSide,
+    pub order_type: OrderType,
     pub base_asset: String,
     pub quote_asset: String,
-    pub status: String,
+    pub status: OrderStatus,
     pub filled: u64,
     pub unsold_market_order_quantity: u64,
     pub unused_market_order_amount: u64,
