@@ -1,12 +1,8 @@
 use std::{ error::Error, time::{ SystemTime, UNIX_EPOCH } };
 use redis::{ AsyncCommands, aio::ConnectionManager, streams::StreamReadOptions };
 use crate::{
-    config::Config,
-    types::{
-        db::DbRequest,
-        market::{ PublishBookWithQuantity, PublishTicker, PublishTickerData, SaveTicker },
-        order::{ OrderRequest, PublishOrder },
-        trade::{ PublishTrade, TradeData },
+    config::Config, types::{
+        db::DbRequest, market::{ PublishBookWithQuantity, PublishTicker, PublishTickerData, SaveTicker }, order::{ OrderRequest, PublishOrder }, trade::{ PublishTrade, TradeData, UserEvent },
     },
 };
 use redis::streams::{ StreamReadReply };
@@ -88,6 +84,17 @@ impl RedisHandler {
         let stream_key = format!("BOOK:{}", market);
         let _: () = self.publisher.publish(stream_key, serialized).await?;
 
+        Ok(())
+    }
+
+    pub async fn publish_user_event(
+        &mut self,
+        user_id: &str,
+        payload: &UserEvent,
+    ) -> Result<(), RedisHandlerError> {
+        let serialized = serde_json::to_string(payload)?;
+        let channel = format!("user:{}", user_id);
+        let _: () = self.publisher.publish(channel, serialized).await?;
         Ok(())
     }
 
