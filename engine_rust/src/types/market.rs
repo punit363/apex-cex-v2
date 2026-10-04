@@ -1,5 +1,5 @@
 use serde::{ Deserialize, Serialize };
-use std::collections::BTreeMap;
+use std::collections::{ BTreeMap, HashMap };
 use crate::types::order::Order;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -110,8 +110,8 @@ pub struct SaveTicker {
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct PublishBookWithQuantityData {
-    pub bids: Vec<Order>,
-    pub asks: Vec<Order>,
+    pub bids: HashMap<u64, u64>,
+    pub asks: HashMap<u64, u64>,
     pub current_price: u64,
 }
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

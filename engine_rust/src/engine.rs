@@ -131,7 +131,7 @@ impl Engine {
                 let order_id = order.order_data.order_id.clone();
                 let order_type = order.order_data.order_type.clone();
 
-                let (bids_snapshot, asks_snapshot) = self.orderbooks
+                let (bids_snapshot, asks_snapshot, current_price) = self.orderbooks
                     .get(&market)
                     .map(|ob| ob.get_book_with_quantities())
                     .unwrap_or_default();
@@ -376,15 +376,20 @@ impl Engine {
                     );
                 }
 
-                let (bids_snapshot, asks_snapshot) = self.orderbooks
+                let (bids_snapshot, asks_snapshot, current_price) = self.orderbooks
                     .get(&market)
                     .map(|ob| ob.get_book_with_quantities())
                     .unwrap_or_default();
 
-                let book_payload = PublishBookWithQuantity {
-                    market: market.clone(),
+                let orderbook_data = PublishBookWithQuantityData {
                     bids: bids_snapshot,
                     asks: asks_snapshot,
+                    current_price
+                };
+
+                let book_payload = PublishBookWithQuantity {
+                    market: market.clone(),
+                    orderbook_data
                 };
 
                 let _ = self.redis.publish_book_with_quantity(

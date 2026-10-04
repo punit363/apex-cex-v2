@@ -6,6 +6,7 @@ use crate::{
         trade::MatchResult,
     },
 };
+use std::collections::HashMap;
 
 pub mod depth;
 pub mod matching;
@@ -176,8 +177,9 @@ impl Orderbook {
         }
     }
 
-    pub fn get_book_with_quantities(&self) -> () {
-        self.depth.to_snapshot()
+    pub fn get_book_with_quantities(&self) -> (HashMap<u64, u64>, HashMap<u64, u64>, u64) {
+        let (bids, asks) = self.depth.to_snapshot();
+        (bids, asks, self.current_price)
     }
 
     pub fn fetch_open_orders(&self) -> (Vec<Order>, Vec<Order>) {

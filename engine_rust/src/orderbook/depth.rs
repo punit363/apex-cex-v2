@@ -1,4 +1,4 @@
-use std::{ cmp::Reverse, collections::{ BTreeMap, btree_map::Entry } };
+use std::{ cmp::Reverse, collections::{ BTreeMap, HashMap, btree_map::Entry } };
 
 use crate::types::order::OrderSide;
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -86,5 +86,16 @@ impl DepthMap {
         &self.bids
     }
 
-    pub fn to_snapshot(&self) {}
-}
+    pub fn to_snapshot(&self) -> (HashMap<u64, u64>, HashMap<u64, u64>) {
+        let bids: HashMap<u64, u64> = self.bids
+            .iter()
+            .map(|(Reverse(price), qty)| (*price, *qty))
+            .collect();
+    
+        let asks: HashMap<u64, u64> = self.asks
+            .iter()
+            .map(|(price, qty)| (*price, *qty))
+            .collect();
+    
+        (bids, asks)
+    }}
