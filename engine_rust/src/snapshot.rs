@@ -1,20 +1,26 @@
-use std::{ collections::HashMap, fs::File, io::{ BufReader, BufWriter } };
-use serde::{ Deserialize, Serialize };
-use crate::{ orderbook::Orderbook, types::order::{ Order } };
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufReader, BufWriter},
+    path::Path,
+};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::sync::watch;
+use tracing::{error, info};
+
+use crate::{orderbook::Orderbook, types::order::Order};
 
 #[derive(Error, Debug)]
 pub enum SnapshotError {
-    // #[from] automatically implements From<std::io::Error> for SnapshotError
-    // This allows the `?` operator to cleanly convert file errors.
-    #[error("failed to read snapshot file: {0}")] Io(#[from] std::io::Error),
+    #[error("failed to read/write snapshot file: {0}")]
+    Io(#[from] std::io::Error),
 
-    // #[from] automatically implements From<serde_json::Error> for SnapshotError
-    #[error("failed to parse snapshot JSON: {0}")] Json(#[from] serde_json::Error),
+    #[error("failed to parse/serialize snapshot JSON: {0}")]
+    Json(#[from] serde_json::Error),
 
-    // You can add custom business-logic errors here if you need to later
-    #[error("snapshot data was empty or invalid")]
-    InvalidData,
+    // #[error("snapshot data was empty or invalid")]
+    // InvalidData,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -32,41 +38,60 @@ pub struct Snapshot {
     pub orderbooks: Vec<OrderbookSnapshot>,
 }
 
-pub fn read_snapshot(path: String) -> Option<Snapshot> {
-    // .ok() converts Result<File, io::Error> into Option<File>
+/// Reads and deserializes a Snapshot from disk.
+pub fn load_snapshot<P: AsRef<Path>>(path: P) -> Option<Snapshot> {
     let file = File::open(path).ok()?;
     let reader = BufReader::new(file);
-
-    // .ok() converts Result<Snapshot, serde_json::Error> into Option<Snapshot>
-    let snapshot = serde_json::from_reader(reader).ok()?;
-
-    Some(snapshot)
+    serde_json::from_reader(reader).ok()
 }
 
-pub fn write_snapshot(path: String, snapshot: &Snapshot) -> Result<(), SnapshotError> {
+/// Serializes and writes a Snapshot to disk using buffered I/O.
+pub fn write_snapshot<P: AsRef<Path>>(path: P, snapshot: &Snapshot) -> Result<(), SnapshotError> {
     let file = File::create(path)?;
-
-    // 2. Wrap it in a BufWriter for efficiency
     let writer = BufWriter::new(file);
-
-    // 3. Serialize and write to the file with pretty indentation
-    serde_json::to_writer_pretty(writer, &snapshot)?;
-
+    serde_json::to_writer_pretty(writer, snapshot)?;
     Ok(())
 }
 
-pub fn build_snapshot(orderbooks: &HashMap<String, Orderbook>) -> Snapshot {
-    let orderbook_snapshots = orderbooks
-        .values()
-        .map(|ob| OrderbookSnapshot {
-            quote_asset: ob.quote_asset.clone(),
-            base_asset: ob.base_asset.clone(),
-            bids: ob.bids.clone(),
-            asks: ob.asks.clone(),
-            last_trade_id: ob.last_trade_id.clone(),
-            current_price: ob.current_price,
-        })
-        .collect();
+/// Converts runtime in-memory Orderbook map into a serializable Snapshot struct.
+// pub fn build_snapshot(orderbooks: &HashMap<String, Orderbook>) -> Snapshot {
+//     let orderbook_snapshots = orderbooks
+//         .values()
+//         .map(|ob| OrderbookSnapshot {
+//             quote_asset: ob.quote_asset.clone(),
+//             base_asset: ob.base_asset.clone(),
+//             bids: ob.bids.clone(),
+//             asks: ob.asks.clone(),
+//             last_trade_id: ob.last_trade_id.clone(),
+//             current_price: ob.current_price,
+//         })
+//         .collect();
 
-    Snapshot { orderbooks: orderbook_snapshots }
+//     Snapshot {
+//         orderbooks: orderbook_snapshots,
+//     }
+// }
+
+/// Spawns a background task that listens on the `watch::Receiver` channel
+/// and flushes incoming snapshots to disk asynchronously.
+pub fn start_snapshot_loop(
+    snapshot_path: String,
+    mut snapshot_rx: watch::Receiver<Option<Snapshot>>,
+) {
+    tokio::spawn(async move {
+        while snapshot_rx.changed().await.is_ok() {
+            let snapshot_opt = snapshot_rx.borrow_and_update().clone();
+            if let Some(snapshot) = snapshot_opt {
+                let path = snapshot_path.clone();
+                // Offload synchronous file I/O to blocking thread pool
+                let res = tokio::task::spawn_blocking(move || write_snapshot(&path, &snapshot)).await;
+
+                match res {
+                    Ok(Ok(())) => info!("Snapshot written successfully to {}", snapshot_path),
+                    Ok(Err(e)) => error!("Failed to write snapshot to disk: {e}"),
+                    Err(e) => error!("Snapshot write task panicked: {e}"),
+                }
+            }
+        }
+    });
 }
