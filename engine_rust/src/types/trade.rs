@@ -1,4 +1,4 @@
-use crate::types::order::{OrderSide, OrderStatus, OrderType};
+use crate::types::order::{ OrderSide, OrderStatus, OrderType };
 use serde::{ Deserialize, Serialize };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,6 +43,20 @@ pub struct TradeData {
 pub struct PublishTrade {
     pub market: String,
     pub trades: Vec<Fill>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CancellationEvent {
+    pub action: String,
+    pub market: String,
+    pub order_id: String,
+    pub user_id: String,
+    pub side: OrderSide,
+    pub quantity: u64,
+    pub filled: u64,
+    pub price: u64,
+    pub base_asset: String,
+    pub quote_asset: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,6 +1,5 @@
 use serde::{ Deserialize, Serialize };
-use std::collections::{ BTreeMap, HashMap };
-use crate::types::order::Order;
+use std::collections::{ HashMap };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -96,7 +95,7 @@ pub struct PublishTickerData {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PublishTicker {
-    pub market: &'static str,
+    pub market: String,
     pub ticker: PublishTickerData,
 }
 

@@ -31,7 +31,7 @@ pub struct Order {
     pub side: OrderSide,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct OrderRequestData {
+pub struct OrderRequestData {
     pub order_id: String,
     pub price: u64,
     pub quantity: u64,
