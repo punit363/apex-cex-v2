@@ -33,43 +33,16 @@ pub struct SupportedMarket {
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    // General
+    // General & Engine Core
     pub satoshi_scale: u64,
+    pub redis_url: String,
+    pub snapshot_path: String,
 
-    // Database
-    pub db_user: String,
-    pub db_password: String,
-    pub db_name: String,
-    pub database_url: String,
-
-    // API & Auth
-    pub access_token_secret: String,
-    pub access_token_expires_in: String,
-    pub refresh_token_secret: String,
-    pub refresh_token_expires_in: String,
-    pub access_cookie_age: u64,
-    pub refresh_cookie_age: u64,
-    pub client_url: String,
-    pub cors_accepted_endpoint: String,
-    pub api_port: u16,
-
-    // Frontend Public
-    pub next_public_api_url: String,
-    pub next_public_ws_url: String,
-    pub next_public_satoshi_scale: u64,
-    pub next_public_access_cookie_age: u64,
-    pub next_public_refresh_cookie_age: u64,
-
-    // Sockets
-    pub ws_port: u16,
-
-    // Enigne
+    // Engine
     pub consumer_group: String,
     pub consumer_name: String,
 
     // Market Maker
-    pub mm_quote_asset: String,
-    pub mm_base_asset: String,
     pub supported_markets: Vec<SupportedMarket>,
 }
 
@@ -79,45 +52,33 @@ impl Config {
         let _ = dotenvy::dotenv();
 
         Ok(Self {
-            // General
+            // General & Engine Core
             satoshi_scale: parse_env("SATOSHI_SCALE")?,
-
-            // Database
-            db_user: read_env("DB_USER")?,
-            db_password: read_env("DB_PASSWORD")?,
-            db_name: read_env("DB_NAME")?,
-            database_url: read_env("DATABASE_URL")?,
-
-            // API & Auth
-            access_token_secret: read_env("ACCESS_TOKEN_SECRET")?,
-            access_token_expires_in: read_env("ACCESS_TOKEN_EXPIRES_IN")?,
-            refresh_token_secret: read_env("REFRESH_TOKEN_SECRET")?,
-            refresh_token_expires_in: read_env("REFRESH_TOKEN_EXPIRES_IN")?,
-            access_cookie_age: parse_env("ACCESS_COOKIE_AGE")?,
-            refresh_cookie_age: parse_env("REFRESH_COOKIE_AGE")?,
-            client_url: read_env("CLIENT_URL")?,
-            cors_accepted_endpoint: read_env("CORS_ACCEPTED_ENDPOINT")?,
-            api_port: parse_env("API_PORT")?,
-
-            // Frontend Public
-            next_public_api_url: read_env("NEXT_PUBLIC_API_URL")?,
-            next_public_ws_url: read_env("NEXT_PUBLIC_WS_URL")?,
-            next_public_satoshi_scale: parse_env("NEXT_PUBLIC_SATOSHI_SCALE")?,
-            next_public_access_cookie_age: parse_env("NEXT_PUBLIC_ACCESS_COOKIE_AGE")?,
-            next_public_refresh_cookie_age: parse_env("NEXT_PUBLIC_REFRESH_COOKIE_AGE")?,
-
-            // Sockets
-            ws_port: parse_env("WS_PORT")?,
+            redis_url: read_env("REDIS_URL")?,
+            snapshot_path: read_env("SNAPSHOT_PATH").unwrap_or_else(|_|
+                "snapshot.json".to_string()
+            ),
 
             // Engine
-            consumer_group: parse_env("ENG_CONSUMER_GROUP")?,
-            consumer_name: parse_env("ENG_CONSUMER_NAME")?,
+            consumer_group: read_env("ENG_CONSUMER_GROUP")?,
+            consumer_name: read_env("ENG_CONSUMER_NAME")?,
 
             // Market Maker
-            mm_quote_asset: read_env("MM_QUOTE_ASSET")?,
-            mm_base_asset: read_env("MM_BASE_ASSET")?,
             supported_markets: parse_json_env("SUPPORTED_MARKETS")?,
         })
+    }
+
+    /// Convenience getter for `satoshi_scale` matching `config.scale` usages in `main.rs` & `Engine`.
+    pub fn scale(&self) -> u64 {
+        self.satoshi_scale
+    }
+
+    /// Derives market symbol pairs (e.g. `["BTC_USDT", "ETH_USDT"]`) from `supported_markets`.
+    pub fn symbols(&self) -> Vec<String> {
+        self.supported_markets
+            .iter()
+            .map(|m| format!("{}_{}", m.base, m.quote))
+            .collect()
     }
 }
 
@@ -135,8 +96,6 @@ fn parse_env<T>(key: &'static str) -> Result<T, ConfigError>
     let raw = read_env(key)?;
     // Strip trailing inline comments if present in raw .env entries (e.g., "900000 # 15 * 60 * 1000")
     let cleaned = raw.split('#').next().unwrap_or("").trim();
-    //Splits the string into pieces around the # delimiter
-    //Takes the first element produced by the split
 
     cleaned.parse::<T>().map_err(|err| ConfigError::ParseError {
         key,
@@ -147,8 +106,5 @@ fn parse_env<T>(key: &'static str) -> Result<T, ConfigError>
 
 fn parse_json_env<T>(key: &'static str) -> Result<T, ConfigError> where T: for<'de> Deserialize<'de> {
     let raw = read_env(key)?;
-    serde_json::from_str::<T>(&raw).map_err(|source| ConfigError::JsonParseError {
-        key,
-        source,
-    })
+    serde_json::from_str::<T>(&raw).map_err(|source| ConfigError::JsonParseError { key, source })
 }
