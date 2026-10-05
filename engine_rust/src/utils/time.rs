@@ -8,3 +8,10 @@ pub fn get_bucket_time()->u64{
 
 now - (now % 60_000)
 }
+
+pub fn get_current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
+}

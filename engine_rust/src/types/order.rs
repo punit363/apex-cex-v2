@@ -50,7 +50,7 @@ pub struct OrderRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct OrderPublishData {
+pub struct OrderPublishData {
     pub order_id: String,
     pub user_id: String,
     pub side: OrderSide,

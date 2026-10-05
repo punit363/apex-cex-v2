@@ -17,11 +17,17 @@ pub struct AddOrderPayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct UpdateOrderPayload {
-    order_id: String,
-    filled: u64,
-    status: OrderStatus,
+pub struct UpdateOrder {
+    pub order_id: String,
+    pub filled: u64,
+    pub status: OrderStatus,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UpdateOrderPayload {
+    pub update_orders: Vec<UpdateOrder>,
+}
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CancelOrderPayload {
@@ -30,22 +36,22 @@ pub struct CancelOrderPayload {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct Trades {
-    trade_id: String,
-    user_id: String,
-    other_user_id: String,
-    order_id: String,
-    other_order_id: String,
-    price: u64,
-    quantity: u64,
-    base_asset: String,
-    quote_asset: String,
-    side: OrderSide,
+pub struct TradeRecord {
+    pub trade_id: String,
+    pub user_id: String,
+    pub other_user_id: String,
+    pub order_id: String,
+    pub other_order_id: String,
+    pub price: u64,
+    pub quantity: u64,
+    pub base_asset: String,
+    pub quote_asset: String,
+    pub side: OrderSide,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AddTradePayload {
-    pub trades: Vec<Trades>,
+    pub trades: Vec<TradeRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

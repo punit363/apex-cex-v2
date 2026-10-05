@@ -1,22 +1,16 @@
 use std::collections::HashMap;
 use tracing::{ error, warn };
 use crate::{
-    config::Config,
     orderbook::Orderbook,
     redis::{ RedisHandler, RedisHandlerError },
-    snapshot::{ Snapshot, build_orderbooks },
+    snapshot::Snapshot,
     types::{
-        db::{ AddOrderPayload, AddTradePayload, CancelOrderPayload, DbRequest },
-        market::{
-            EngineResponseStatus,
-            PublishBookWithQuantity,
-            PublishBookWithQuantityData,
-            PublishOrder,
-            PublishTrade,
-        },
-        order::{ IncommingOrder, OrderRequest, OrderSide, OrderType },
-        trade::{ CancellationEvent, TradeData },
+        db::{ AddOrderPayload, AddTradePayload, CancelOrderPayload, DbRequest, UpdateOrderPayload },
+        market::{ EngineResponseStatus, PublishBookWithQuantity, PublishBookWithQuantityData },
+        order::{ IncommingOrder, OrderPublishData, OrderRequest, PublishOrder },
+        trade::{ PublishTrade, TradeData },
     },
+    utils::time::get_current_timestamp,
 };
 
 pub struct Engine {
@@ -154,8 +148,7 @@ impl Engine {
 
                 let _ = self.redis.set_book_with_quantity(&market, &book_payload).await;
 
-                let order_payload = PublishOrder {
-                    market: market.clone(),
+                let order_data = OrderPublishData {
                     order_id: order_id.clone(),
                     user_id: user_id.clone(),
                     side: side.clone(),
@@ -166,6 +159,12 @@ impl Engine {
                     status: result.status.clone(),
                     base_asset: base_asset.clone(),
                     quote_asset: quote_asset.clone(),
+                    created_at: get_current_timestamp(),
+                };
+
+                let order_payload = PublishOrder {
+                    market: market.clone(),
+                    order_data,
                 };
 
                 let _ = self.redis.publish_order(market.clone(), order_payload).await;
@@ -225,7 +224,7 @@ impl Engine {
 
                     let _ = self.redis.publish_trade(market.clone(), PublishTrade {
                         market: market.clone(),
-                        trade: result.fills.clone(),
+                        trades: result.fills.clone(),
                     }).await;
 
                     for fill in &result.fills {
@@ -284,9 +283,11 @@ impl Engine {
                         .collect();
 
                     if
-                        let Err(e) = self.redis.send_to_db(DbRequest::UpdateOrders {
-                            update_orders,
-                        }).await
+                        let Err(e) = self.redis.send_to_db(
+                            DbRequest::UpdateOrder(UpdateOrderPayload {
+                                update_orders,
+                            })
+                        ).await
                     {
                         error!(
                             "[CRITICAL] UPDATE_ORDERS DB sync failed for order {}: {}",
@@ -384,12 +385,12 @@ impl Engine {
                 let orderbook_data = PublishBookWithQuantityData {
                     bids: bids_snapshot,
                     asks: asks_snapshot,
-                    current_price
+                    current_price,
                 };
 
                 let book_payload = PublishBookWithQuantity {
                     market: market.clone(),
-                    orderbook_data
+                    orderbook_data,
                 };
 
                 let _ = self.redis.publish_book_with_quantity(
