@@ -78,13 +78,13 @@ impl DepthMap {
         }
     }
 
-    pub fn get_asks(&self) -> &BTreeMap<u64, u64> {
-        &self.asks
-    }
+    // pub fn get_asks(&self) -> &BTreeMap<u64, u64> {
+    //     &self.asks
+    // }
 
-    pub fn get_bids(&self) -> &BTreeMap<Reverse<u64>, u64> {
-        &self.bids
-    }
+    // pub fn get_bids(&self) -> &BTreeMap<Reverse<u64>, u64> {
+    //     &self.bids
+    // }
 
     pub fn to_snapshot(&self) -> (HashMap<u64, u64>, HashMap<u64, u64>) {
         let bids: HashMap<u64, u64> = self.bids

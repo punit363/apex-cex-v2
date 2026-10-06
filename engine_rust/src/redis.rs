@@ -1,7 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{ SystemTime, UNIX_EPOCH };
 use redis::{
     aio::ConnectionManager,
-    streams::{StreamReadOptions, StreamReadReply},
+    streams::{ StreamReadOptions, StreamReadReply },
     AsyncCommands,
 };
 use serde::Serialize;
@@ -10,20 +10,17 @@ use crate::{
     config::Config,
     types::{
         db::DbRequest,
-        market::{PublishBookWithQuantity, PublishTicker, PublishTickerData, SaveTicker},
-        order::{OrderRequest, PublishOrder},
-        trade::{PublishTrade, UserEvent},
+        market::{ PublishBookWithQuantity, PublishTicker, PublishTickerData, SaveTicker },
+        order::{ OrderRequest, PublishOrder },
+        trade::{ PublishTrade, UserEvent },
     },
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum RedisHandlerError {
-    #[error("Redis error: {0}")]
-    Redis(#[from] redis::RedisError),
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-    #[error("Invalid UTF-8 in stream payload: {0}")]
-    Utf8(#[from] std::str::Utf8Error),
+    #[error("Redis error: {0}")] Redis(#[from] redis::RedisError),
+    #[error("Serialization error: {0}")] Serialization(#[from] serde_json::Error),
+    #[error("Invalid UTF-8 in stream payload: {0}")] Utf8(#[from] std::str::Utf8Error),
 }
 
 pub struct RedisHandler {
@@ -55,7 +52,7 @@ impl RedisHandler {
     pub async fn publish_order(
         &mut self,
         market: &str,
-        payload: PublishOrder,
+        payload: PublishOrder
     ) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(&payload)?;
         let channel = format!("ORDER:{}", market);
@@ -66,7 +63,7 @@ impl RedisHandler {
     pub async fn publish_trade(
         &mut self,
         market: &str,
-        payload: PublishTrade,
+        payload: PublishTrade
     ) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(&payload)?;
         let channel = format!("TRADE:{}", market);
@@ -77,7 +74,7 @@ impl RedisHandler {
     pub async fn publish_ticker(
         &mut self,
         market: &str,
-        payload: &PublishTicker,
+        payload: &PublishTicker
     ) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(payload)?;
         let channel = format!("TICKER:{}", market);
@@ -88,7 +85,7 @@ impl RedisHandler {
     pub async fn publish_book_with_quantity(
         &mut self,
         market: &str,
-        payload: PublishBookWithQuantity,
+        payload: PublishBookWithQuantity
     ) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(&payload)?;
         let channel = format!("BOOK:{}", market);
@@ -99,7 +96,7 @@ impl RedisHandler {
     pub async fn publish_user_event(
         &mut self,
         user_id: &str,
-        payload: &UserEvent,
+        payload: &UserEvent
     ) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(payload)?;
         let channel = format!("user:{}", user_id);
@@ -110,7 +107,7 @@ impl RedisHandler {
     pub async fn set_book_with_quantity(
         &mut self,
         market: &str,
-        payload: &PublishBookWithQuantity,
+        payload: &PublishBookWithQuantity
     ) -> Result<(), RedisHandlerError> {
         let serialized = serde_json::to_string(payload)?;
         let key = format!("DEPTH:{}", market);
@@ -122,34 +119,28 @@ impl RedisHandler {
     pub async fn add_to_risk_router_stream<T: Serialize>(
         &mut self,
         market: &str,
-        payload: T,
+        payload: T
     ) -> Result<(), RedisHandlerError> {
         let stream_key = format!("trade:{}", market);
         let serialized = serde_json::to_string(&payload)?;
 
-        let _: () = self
-            .client
-            .xadd(stream_key, "*", &[("payload", serialized)])
-            .await?;
+        let _: () = self.client.xadd(stream_key, "*", &[("payload", serialized)]).await?;
         Ok(())
     }
 
     pub async fn xack(
         &mut self,
         stream_key: &str,
-        message_id: &str,
+        message_id: &str
     ) -> Result<(), RedisHandlerError> {
-        let _: () = self
-            .client
-            .xack(stream_key, &self.consumer_group, &[message_id])
-            .await?;
+        let _: () = self.client.xack(stream_key, &self.consumer_group, &[message_id]).await?;
         Ok(())
     }
 
     pub async fn save_ticker_data(
         &mut self,
         market: &str,
-        payload: SaveTicker,
+        payload: SaveTicker
     ) -> Result<(), RedisHandlerError> {
         let stream_key = format!("TICKER_TRADES:{}", market);
 
@@ -183,12 +174,18 @@ impl RedisHandler {
             volume += trade.quantity;
         }
 
-        let open = trade_arr.first().map(|t| t.price).unwrap_or(0);
-        let close = trade_arr.last().map(|t| t.price).unwrap_or(0);
+        let open = trade_arr
+            .first()
+            .map(|t| t.price)
+            .unwrap_or(0);
+        let close = trade_arr
+            .last()
+            .map(|t| t.price)
+            .unwrap_or(0);
         let low = if low == u64::MAX { 0 } else { low };
 
         let ticker_payload = PublishTicker {
-            market:market.to_string(),
+            market: market.to_string(),
             ticker: PublishTickerData {
                 low,
                 high,
@@ -205,12 +202,13 @@ impl RedisHandler {
 
     pub async fn setup_consumer_group(
         &mut self,
-        stream_key: &str,
+        stream_key: &str
     ) -> Result<(), RedisHandlerError> {
-        let result: Result<(), redis::RedisError> = self
-            .client
-            .xgroup_create_mkstream(stream_key, &self.consumer_group, "$")
-            .await;
+        let result: Result<(), redis::RedisError> = self.client.xgroup_create_mkstream(
+            stream_key,
+            &self.consumer_group,
+            "$"
+        ).await;
 
         match result {
             Ok(()) => Ok(()),
@@ -224,7 +222,7 @@ impl RedisHandler {
     /// Reads batch of messages across all configured stream keys
     pub async fn read_next_batch(
         &mut self,
-        stream_keys: &[String],
+        stream_keys: &[String]
     ) -> Result<Vec<(OrderRequest, String, String)>, RedisHandlerError> {
         let opts = StreamReadOptions::default()
             .group(&self.consumer_group, &self.consumer_name)
@@ -232,12 +230,22 @@ impl RedisHandler {
             .block(5000);
 
         let ids: Vec<&str> = vec![">"; stream_keys.len()];
-        let keys_str: Vec<&str> = stream_keys.iter().map(|s| s.as_str()).collect();
+        let keys_str: Vec<&str> = stream_keys
+            .iter()
+            .map(|s| s.as_str())
+            .collect();
 
-        let reply: Option<StreamReadReply> = self
-            .client
-            .xread_options(&keys_str, &ids, &opts)
-            .await?;
+        let reply: Option<StreamReadReply> = match
+            self.client.xread_options(&keys_str, &ids, &opts).await
+        {
+            Ok(reply) => reply,
+            Err(err) if err.is_timeout() => {
+                return Ok(Vec::new());
+            }
+            Err(err) => {
+                return Err(RedisHandlerError::from(err));
+            }
+        };
 
         let mut parsed_messages = Vec::new();
 

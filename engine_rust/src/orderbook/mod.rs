@@ -65,9 +65,9 @@ impl Orderbook {
         }
     }
 
-    fn market_key(&self) -> String {
-        format!("{}_{}", self.base_asset, self.quote_asset)
-    }
+    // fn market_key(&self) -> String {
+    //     format!("{}_{}", self.base_asset, self.quote_asset)
+    // }
 
     pub fn place_order(
         &mut self,
@@ -182,7 +182,7 @@ impl Orderbook {
         (bids, asks, self.current_price)
     }
 
-    pub fn fetch_open_orders(&self) -> (Vec<Order>, Vec<Order>) {
-        (self.bids.clone(), self.asks.clone())
-    }
+    // pub fn fetch_open_orders(&self) -> (Vec<Order>, Vec<Order>) {
+    //     (self.bids.clone(), self.asks.clone())
+    // }
 }

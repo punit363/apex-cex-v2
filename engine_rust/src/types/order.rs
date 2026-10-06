@@ -71,23 +71,23 @@ pub struct PublishOrder {
     pub order_data: OrderPublishData,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct OrderCancelData {
-    pub order_id: String,
-    pub user_id: String,
-    pub side: OrderSide,
-    pub quantity: u64,
-    pub filled_quantity: u64,
-    pub price: u64,
-    pub base_asset: String,
-    pub quote_asset: String,
-}
+// #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// struct OrderCancelData {
+//     pub order_id: String,
+//     pub user_id: String,
+//     pub side: OrderSide,
+//     pub quantity: u64,
+//     pub filled_quantity: u64,
+//     pub price: u64,
+//     pub base_asset: String,
+//     pub quote_asset: String,
+// }
 
-pub struct OrderCancellation {
-    pub action: String,
-    pub market: String,
-    pub cancel_data: OrderCancelData,
-}
+// pub struct OrderCancellation {
+//     pub action: String,
+//     pub market: String,
+//     pub cancel_data: OrderCancelData,
+// }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IncommingOrder {

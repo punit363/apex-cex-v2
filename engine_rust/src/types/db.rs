@@ -54,18 +54,18 @@ pub struct AddTradePayload {
     pub trades: Vec<TradeRecord>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct AddCandlePayload {
-    candle_id: String,
-    interval: String,
-    base_asset: String,
-    quote_asset: String,
-    open: u64,
-    high: u64,
-    low: u64,
-    close: u64,
-    volume: u64,
-}
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+// struct AddCandlePayload {
+//     candle_id: String,
+//     interval: String,
+//     base_asset: String,
+//     quote_asset: String,
+//     open: u64,
+//     high: u64,
+//     low: u64,
+//     close: u64,
+//     volume: u64,
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -79,5 +79,5 @@ pub enum DbRequest {
 
     #[serde(rename = "ADD_TRADES")] AddTrade(AddTradePayload),
 
-    #[serde(rename = "ADD_CANDLE")] AddCandle(AddCandlePayload),
+    // #[serde(rename = "ADD_CANDLE")] AddCandle(AddCandlePayload),
 }

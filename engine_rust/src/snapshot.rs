@@ -1,23 +1,24 @@
 use std::{
-    collections::HashMap,
+    // collections::HashMap,
     fs::File,
-    io::{BufReader, BufWriter},
+    io::{ BufReader, BufWriter },
     path::Path,
 };
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 use thiserror::Error;
 use tokio::sync::watch;
-use tracing::{error, info};
+use tracing::{ error, info };
 
-use crate::{orderbook::Orderbook, types::order::Order};
+use crate::{
+    // orderbook::Orderbook,
+    types::order::Order,
+};
 
 #[derive(Error, Debug)]
 pub enum SnapshotError {
-    #[error("failed to read/write snapshot file: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("failed to read/write snapshot file: {0}")] Io(#[from] std::io::Error),
 
-    #[error("failed to parse/serialize snapshot JSON: {0}")]
-    Json(#[from] serde_json::Error),
+    #[error("failed to parse/serialize snapshot JSON: {0}")] Json(#[from] serde_json::Error),
 
     // #[error("snapshot data was empty or invalid")]
     // InvalidData,
@@ -76,7 +77,7 @@ pub fn write_snapshot<P: AsRef<Path>>(path: P, snapshot: &Snapshot) -> Result<()
 /// and flushes incoming snapshots to disk asynchronously.
 pub fn start_snapshot_loop(
     snapshot_path: String,
-    mut snapshot_rx: watch::Receiver<Option<Snapshot>>,
+    mut snapshot_rx: watch::Receiver<Option<Snapshot>>
 ) {
     tokio::spawn(async move {
         while snapshot_rx.changed().await.is_ok() {
@@ -84,7 +85,9 @@ pub fn start_snapshot_loop(
             if let Some(snapshot) = snapshot_opt {
                 let path = snapshot_path.clone();
                 // Offload synchronous file I/O to blocking thread pool
-                let res = tokio::task::spawn_blocking(move || write_snapshot(&path, &snapshot)).await;
+                let res = tokio::task::spawn_blocking(move ||
+                    write_snapshot(&path, &snapshot)
+                ).await;
 
                 match res {
                     Ok(Ok(())) => info!("Snapshot written successfully to {}", snapshot_path),
